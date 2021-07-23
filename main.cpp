@@ -7,6 +7,7 @@
 #include "index.h"
 #include "option.h"
 #include "input.h"
+#include "rfpriv.h"
 
 
 int main(int argc, char *argv[])
@@ -42,6 +43,19 @@ int main(int argc, char *argv[])
 		mi_l.idx_sort();
 		mi_l.storeIndex(sidxFile);
 	}
+
+	// find small&dense hits for each sample
+	uint32_t i, j;
+	vector<hit> fhits, rhits;
+	for (i = 0; i < genome.getSize(); ++i) {
+		hit(i, i, mi_s, fhits, rhits);
+
+		// find copy boundary for each sample based on the hits
+
+
+
+	}
+
 	return 0;
 
 
