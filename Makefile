@@ -9,9 +9,9 @@ asan?=""
 tsan?=""
 
 ifneq ($(DEBUG), "")
-CFLAGS=-g
+CFLAGS=-g -O0 
 else
-CFLAGS=-O2 -DNDEBUG 
+CFLAGS=-O0 -DNDEBUG 
 endif
 
 ifneq ($(asan), "")
@@ -30,17 +30,23 @@ endif
 
 all:$(PROG)
 
-rf: main.o index.o sketch.o
+rf: main.o index.o sketch.o hit.o cluster.o 
 	$(CXX) $(CFLAGS) -o $@ $^ -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS) 
 
 main.o: main.cpp genome.h index.h option.h input.h
 	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS) 
 
-index.o: index.cpp index.h rfpriv.h
+index.o: index.cpp index.h rfpriv.h index.h
 	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS) 
 
-sketch.o: sketch.cpp rfpriv.h
+sketch.o: sketch.cpp rfpriv.h index.h
 	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS) 
+
+cluster.o: cluster.cpp cluster.h rfpriv.h hit.h
+	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS)
+
+hit.o: hit.cpp hit.h rfpriv.h index.h
+	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS)
 
 clean:
 	rm -f $(PROG) $(PROG_EXTRA) *.o 

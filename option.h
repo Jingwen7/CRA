@@ -10,9 +10,33 @@ public:
 
 };
 
-// class fragopt_t {
-// public:
+class fragopt_t {
+public:
+	int CleanMaxDiag;
+	int DiagMinCluster;
+	int clusterMaxDiag;
+	int clusterMinLength;
+	int clusterTrimedge;
+	uint32_t code;
+	bool debug;
+	int freq;
+
+
+	fragopt_t () 
+	{
+		CleanMaxDiag = 100;
+		DiagMinCluster = 30;
+		clusterMaxDiag = 500;
+		clusterMinLength = 1000;
+		clusterTrimedge = 200;
+		code = 0;
+		debug = true;
+		freq = 50;
+
+
+	};
+
 	
-// };
+};
 
 #endif

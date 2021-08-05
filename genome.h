@@ -60,7 +60,7 @@ class Genome
 		return &names[index];
 	}
 
-	int getLen (int index) 
+	uint32_t getLen (int index) 
 	{
 		return lens[index];
 	}

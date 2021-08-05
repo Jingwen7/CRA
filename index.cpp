@@ -9,26 +9,89 @@ using namespace std;
 uint256_t sortPreBitsOp::pmask;
 uint64_t sortSufBitsOp::smask;
 
-
-void idx_t::idx_gen () 
-{
-	for (int i = 0; i < genome->getSize(); i++) {
-		sketch(genome->getSeq(i), genome->getLen(i), w, k, i, idxv);
-	}
+char binaryTont4_table[4] = { // Table to change 01234 "ACGTN" to
+	'A', 'C', 'G', 'T'
 };
 
-void idx_t::idx_sort () 
+void printK (uint256_t mi, uint32_t k) {
+	char test[k];
+	char * chararr = test;
+	uint256_t mask = 3;
+	uint32_t i;
+	for (i = 0; i < k; ++i) {
+		chararr[i] = binaryTont4_table[(int)(mi & mask)];
+		cerr << chararr[i] ;
+		mi >>= 2;
+	}
+	cerr << endl;	
+}
+
+void binaryTochar (uint256_t mi, char *chararr, uint32_t k, bool strand)
+{
+	uint256_t mask = 3;
+	uint32_t i;
+	for (i = 0; i < k; ++i) {
+		// cerr << mi << " " << mask << " " << (mi & mask) << " " << (int)(mi & mask) << " "; 
+		if (strand == 0) chararr[i] = binaryTont4_table[(int)(mi & mask)];
+		else chararr[i] = binaryTont4_table[(int)((mi & mask) ^ mask)];
+		mi >>= 2;
+	}
+	// cerr << endl;
+}
+
+void checkMinimizerMatch (uint256_t minimizer, uint32_t k, char * seq, uint32_t start, bool strand)
+{
+	char test[k];
+	char * chararr = test;
+	uint32_t d, l;
+	binaryTochar(minimizer, chararr, k, strand);
+	for (l = 0; l < k; ++l) {
+		if (!strand) assert(chararr[k - 1 - l] == seq[start + l]);
+		else assert(chararr[l] == seq[start + l]);
+	}	
+	// cerr << "minimizer: " << chararr << endl;	
+}
+
+void printMinimizerMatch (uint256_t minimizer, uint32_t k, char * seq, uint32_t start, bool strand)
+{
+	char test[k];
+	char * chararr = test;
+	uint32_t d, l;
+	binaryTochar(minimizer, chararr, k, strand);
+	for (l = 0; l < k; ++l) {
+		cerr << chararr[l];
+	}	
+	cerr << " " << start << endl;	
+}
+
+void idx_t::idx_totalLen ()
+{
+	totalLen = accumulate(genome->lens.begin(), genome->lens.end(), 0);	
+}
+
+void idx_t::idx_gen (const fragopt_t &fopts) 
+{
+	for (int i = 0; i < genome->getSize(); i++) {
+		sketch(genome->getSeq(i), genome->getLen(i), k, w, i, idxv, fopts.debug);
+	}
+	cerr << "idxv.size(): " << idxv.size() << endl;;
+};
+
+void idx_t::idx_sort (const fragopt_t &fopts) 
 {
 	// sort by 256 bits (idx_320_t.x)
 	sortPreBitsOp presorter(KMERBITS);
 	sort(idxv.begin(), idxv.end(), presorter);
+	// cerr << "presorter.pmask: " << presorter.pmask << endl;	
+	ofstream fclust("minimizers.bed");
 
-	// create hash table
+	//create hash table
 	int s = 0;
-	uint64_t pmask = ((uint64_t)1 << POSBITS - 1); // 0000...1111
+	uint64_t pmask = (((uint64_t)1 << POSBITS) - 1); // 0000...1111
 	uint64_t rmask = ~pmask; // 1111...0000
 	dnkmer = 0; sgnkmer = 0;
-
+	// cerr << "pmask: " << pmask << endl;
+	// cerr << "rmask: " << rmask << endl;
 	for (int i = 1; i <= idxv.size(); i++) {
 		if (i < idxv.size() and (idxv[i].x & presorter.pmask) == (idxv[i - 1].x & presorter.pmask)) continue;
 		else {
@@ -38,6 +101,13 @@ void idx_t::idx_sort ()
 				sortSufBitsOp sufsorter(POSBITS);
 				if (i < idxv.size()) sort(idxv.begin() + s, idxv.begin() + i, sufsorter);
 				else sort(idxv.begin() + s, idxv.end(), sufsorter);
+
+				// debug
+				if (fopts.debug) {
+					for (uint32_t m = s; m < i; ++m) {
+						fclust << idxv[m].x << "\t" << idxv[m].y << endl;
+					}					
+				}
 			}
 			else sgnkmer++;
 			for (int j = s; j < i; j++) {
@@ -48,15 +118,26 @@ void idx_t::idx_sort ()
 				// r = idxv.x & presorter.mask + 1; // backward strand
 				// z = idxv.x == f? 0 : 1; // direction
 				// seqh[rid] 
-				if (seqh[rid]->empty()) (*seqh[rid])[idxv[j].x].push_back(pos);
+				if (seqh[rid]->empty()) {
+					seqh[rid]->insert(make_pair(idxv[j].x, vector<uint32_t>(1, pos))); //(*seqh[rid])[idxv[j].x].push_back(pos);
+				}
 				else {
 					kmerhash::iterator t = seqh[rid]->find(idxv[j].x);
 					if (t != seqh[rid]->end()) (*seqh[rid])[idxv[j].x].push_back(pos);
 				}
+
+				//debug
+				if (fopts.debug) {
+					bool strand = (bool)(idxv[j].x & (~presorter.pmask));
+					uint256_t minimizer = (idxv[j].x >> 1);
+					checkMinimizerMatch(minimizer, k, genome->seqs[rid], pos, strand);						
+				}
+				
 			}
 			s = i;
 		}
 	}
+	fclust.close();	
 	idxv.clear();
 }
 
@@ -128,7 +209,7 @@ int idx_t::readIndex (string fn)
     	// exit(1);
 		return 1;
 	}
-	char magic[3];
+	char magic[4];
 	uint32_t x[3];
 	if (!fin.read(magic, 4)) return 1;
 	if (strncmp(magic, RF_IDX_MAGIC, 4) != 0) return 1;
@@ -174,3 +255,4 @@ int idx_t::readIndex (string fn)
 	}
 	return 0;
 }
+

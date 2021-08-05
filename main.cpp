@@ -8,6 +8,8 @@
 #include "option.h"
 #include "input.h"
 #include "rfpriv.h"
+#include "hit.h"
+#include "cluster.h"
 
 
 int main(int argc, char *argv[])
@@ -17,9 +19,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	idxopt_t siopt(17, 1);
+	idxopt_t siopt(20, 1);
 	idxopt_t liopt(100, 1);
-	// fragopt_t fopt;
+	fragopt_t fopts;
 
 	// read input FASTA file
 	Input reader;
@@ -34,31 +36,86 @@ int main(int argc, char *argv[])
 	idx_t mi_s(siopt, genome);
 	idx_t mi_l(liopt, genome);
 	if (mi_s.readIndex(sidxFile) == 1) {
-		mi_s.idx_gen();
-		mi_s.idx_sort();
+		cerr << "k: " << mi_s.k << endl;
+		mi_s.idx_gen(fopts);
+		mi_s.idx_sort(fopts);
 		mi_s.storeIndex(sidxFile);
 	}
 	if (mi_l.readIndex(lidxFile) == 1) {
-		mi_l.idx_gen();
-		mi_l.idx_sort();
-		mi_l.storeIndex(sidxFile);
+		cerr << "k: " << mi_l.k << endl;
+		mi_l.idx_gen(fopts);
+		mi_l.idx_sort(fopts);
+		mi_l.storeIndex(lidxFile);
 	}
+	cerr << "finish indexing!" << endl;
 
-	// find small&dense hits for each sample
+	// find small & dense hits for each sample
 	uint32_t i, j;
 	vector<hit> fhits, rhits;
+	// vector<sample> samples(genome->getSize());
 	for (i = 0; i < genome.getSize(); ++i) {
-		hit(i, i, mi_s, fhits, rhits);
+		rf_hit(i, i, mi_s, fhits, rhits, fopts, siopt, 1); // find rhits also
+		cerr << "finish rf_hit!" << endl;
+		clusters clusts;
+		cleanDiag(fhits, fopts, 0);
+		cleanDiag(rhits, fopts, 1);
+		cerr << "finish cleanDiag!" << endl;
+		storeDiagCluster(fhits, clusts, 0, siopt, fopts);
+		storeDiagCluster(rhits, clusts, 1, siopt, fopts);
+		cerr << "finish storeDiagCluster!" << endl;
 
-		// find copy boundary for each sample based on the hits
+		// sort(clusts.begin(), clusts.end(), clustDiagonalSortOp);
+
+		// find overlap clusters && trim the edge of clusters && add back the main diagonal 
+		trim_ovpClusters(clusts, fopts.clusterTrimedge);
+		cerr << "finish trim_ovpClusters!" << endl;
+		// clusts.push_back(cluster(0, 0, 0, genoms->getLen(i), 0, genoms->getLen(i), 0));
+
+		// split clusters by endpoints
+		clusters splitclusts;
+		splitClusters(clusts, splitclusts);
+		trim_ovpClusters(splitclusts, 100);
+		cerr << "finish splitClusters!" << endl;
+
+		// get the fragment label for each sample
+		fragLabel(splitclusts, fopts);
+		cerr << "finish fragLabel!" << endl;
 
 
 
+
+
+
+		// // find copy boundary for each sample based on the hits
+		// clusters clusts;
+		// cleanDiag(fhits);
+		// storeDiagCluster(fhits, clusts, siopt, fopt);
+		// sort(clusts.begin(), clusts.end(), clustDiagonalSortOp);
+		// if (clusts.size == 0)
+		// 	// do something 
+		// int64_t mergeDiag = min((int64_t)clusts[0].xStart - (int64_t)clusts[0].xEnd - 1000, 3000);
+		// clusters reclusts;
+		// mergeDiagCluster(clusts, reclusts, mergeDiag, 0);
+
+		// findCopyLoc(clusts); // copylen
+		// findDel(clusts, reclusts);
+		// fhits.clear();
+		// rhits.clear();
 	}
 
+
+	// find large hits for each sample
+	for (i = 0; i < genome.getSize(); ++i) {
+		// check each small grid, unify them if a full cluster present; fragment them if a half cluster present; 
+	}	
+
+
+	// find large hits for a pair of sample
+	for (i = 0; i < genome.getSize(); ++i) {
+		// for each fragment in sample i, find the corresponding fragment in sample j; 
+		// unify them if a full cluster present; fragment them if a half cluster present;
+	}	
 	return 0;
-
-
 	
 
 
