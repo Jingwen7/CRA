@@ -15,6 +15,7 @@ public:
 	int CleanMaxDiag;
 	int DiagMinCluster;
 	int clusterMaxDiag;
+	int clusterMaxDist;
 	int clusterMinLength;
 	int clusterTrimedge;
 	uint32_t code;
@@ -25,8 +26,9 @@ public:
 	fragopt_t () 
 	{
 		CleanMaxDiag = 100;
-		DiagMinCluster = 30;
+		DiagMinCluster = 100;
 		clusterMaxDiag = 500;
+		clusterMaxDist = 1000;
 		clusterMinLength = 1000;
 		clusterTrimedge = 200;
 		code = 0;

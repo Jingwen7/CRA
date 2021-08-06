@@ -47,10 +47,12 @@ inline void find_match (vector<hit> &hits, const uint256_t &mi, const vector<uin
 		if (ot != khash.end()) {
 			for (i = 0; i < ot->second.size(); ++i) {
 				for (j = 0; j < pos.size(); ++j) {
-					temp.mi = (mi & fmask); 
-					temp.x = pos[j]; 
-					temp.y = (ot->second)[i];
-					hits.push_back(temp);				
+					if (pos[j] < (ot->second)[i]){
+						temp.mi = (mi & fmask); 
+						temp.x = pos[j]; 
+						temp.y = (ot->second)[i];
+						hits.push_back(temp);	
+					}			
 				}
 			}
 		}		
@@ -105,73 +107,81 @@ void rf_hit(const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fh
 		cerr << "forward matches: " << fhits.size() << endl;
 		for (uint32_t m = 0; m < fhits.size(); ++m) {
 			// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
-			fclust << fhits[m].x << "\t" << fhits[m].y << "\t" << fhits[m].x + iopt.k << "\t" << fhits[m].y + iopt.k << "\t" << "0" << "\t" << fhits[m].mi <<  endl;
+			fclust << fhits[m].x << "\t" << fhits[m].y << "\t" << fhits[m].x + iopt.k << "\t" << fhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "0" << "\t0" << endl;
 		}
 		cerr << "reverse matches: " << rhits.size() << endl;
 		for (uint32_t m = 0; m < rhits.size(); ++m) {
-			fclust << rhits[m].x << "\t" << rhits[m].y << "\t" << rhits[m].x + iopt.k << "\t" << rhits[m].y + iopt.k << "\t" << "1" << "\t" << rhits[m].mi << endl;
+			fclust << rhits[m].x << "\t" << rhits[m].y << "\t" << rhits[m].x + iopt.k << "\t" << rhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "1" << "\t" << endl;
 		}
 		fclust.close();			
 	}
 }
 
-void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, bool st)
+void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, const idxopt_t &iopt, bool st)
 {
+	//sort hits
+	if (!st) {
+		sort(hits.begin(), hits.end(), hitDiagonalSort);
+	}
+	else {
+		sort(hits.begin(), hits.end(), hitAntiDiagonalSort);
+	}
 	uint32_t n = hits.size();
 	vector<bool> onDiag(n, 0);
 	if (n <= 1) return;
 	//
 	// starting from forward order
 	//
-	uint32_t nOnDiag2 = 0;
 	vector<bool> foward_onDiag(n, false);
 	vector<bool> reverse_onDiag(n, false);
 
 	uint32_t i, j;
 	for (i = 1; i < n; ++i) {
-		if (abs(DiagonalDifference(hits[i], hits[i - 1], st)) < fopts.CleanMaxDiag) {	
+		if (abs(DiagonalDifference(hits[i], hits[i - 1], st)) < fopts.CleanMaxDiag)	
 			foward_onDiag[i - 1] = true;
-			nOnDiag2++;
-		}
 	}
 
-	bool prevOnDiag = false; int diagStart; int counter = 0;
+	bool prevOnDiag = false; int diagStart;
 	for (i = 0; i < n; ++i) {
-		if (prevOnDiag == false and foward_onDiag[i] == true) 
+		if (prevOnDiag == false and foward_onDiag[i] == true) {
 			diagStart = i;
-		if (prevOnDiag == true and foward_onDiag[i] == false) {
-			if (i - diagStart + 1 < fopts.DiagMinCluster) { // [diagStart, i]
-				for (j = diagStart; j <= i; ++j) { foward_onDiag[j] = false; }
-			}
-			else { foward_onDiag[i] = true; }
-			counter++;
+			prevOnDiag = foward_onDiag[i];
 		}
-		prevOnDiag = foward_onDiag[i];
+		else if (prevOnDiag == true and foward_onDiag[i] == false) {
+			prevOnDiag = false;
+			if (i - diagStart + 1 < fopts.DiagMinCluster)// [diagStart, i]
+				for (j = diagStart; j <= i; ++j) { foward_onDiag[j] = false; }
+			else 
+				foward_onDiag[i] = true; 
+		}
+		else
+			prevOnDiag = foward_onDiag[i];
 	}	
 
 	//
 	// starting from reverse order
 	//
 	for (i = n - 2; i >= 0; --i) {
-		if (abs(DiagonalDifference(hits[i], hits[i + 1], st)) < fopts.CleanMaxDiag) {	
+		if (abs(DiagonalDifference(hits[i], hits[i + 1], st)) < fopts.CleanMaxDiag)
 			reverse_onDiag[i + 1] = true;
-			nOnDiag2++;
-		}
 		if (i == 0) break;
 	}
 
-	prevOnDiag = false; counter = 0;
+	prevOnDiag = false;
 	for (i = n - 1; i >= 0; --i) {
-		if (prevOnDiag == false and reverse_onDiag[i] == true) 
+		if (prevOnDiag == false and reverse_onDiag[i] == true) {
 			diagStart = i;
-		if (prevOnDiag == true and reverse_onDiag[i] == false) {
-			if (diagStart - i + 1 < fopts.DiagMinCluster) { // [diagStart, i]
-				for (j = i; j <= diagStart; ++j) { reverse_onDiag[j] = false; }
-			}
-			else { reverse_onDiag[i] = true; }
-			counter++;
+			prevOnDiag = reverse_onDiag[i];
 		}
-		prevOnDiag = reverse_onDiag[i];
+		else if (prevOnDiag == true and reverse_onDiag[i] == false) {
+			prevOnDiag = false;
+			if (diagStart - i + 1 < fopts.DiagMinCluster) // [diagStart, i]
+				for (j = i; j <= diagStart; ++j) { reverse_onDiag[j] = false; }
+			else 
+				reverse_onDiag[i] = true;
+		}
+		else
+			prevOnDiag = reverse_onDiag[i];
 		if (i == 0) break;
 	}
 
@@ -189,7 +199,18 @@ void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, bool st)
 			c++;
 		}
 	}
+	cerr << "before cleaning: " << hits.size() << endl;
+	cerr << "after cleaning: " << c << endl;
 	hits.resize(c);
+
+	if (fopts.debug) {
+		ofstream fclust("cleanmatches.bed", ios_base::app);
+		for (uint32_t m = 0; m < hits.size(); ++m) {
+			// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
+			fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t0" << endl;
+		}
+		fclust.close();			
+	}
 };
 
 

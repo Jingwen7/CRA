@@ -27,10 +27,10 @@ bool clustAntiDiagonalSortOp(const cluster &a, const cluster &b) {
 
 void storeDiagCluster (vector<hit> &hits, clusters &clust, bool st, idxopt_t &iopt, fragopt_t &fopts) 
 {
-	if (st == 0)
-		sort(hits.begin(), hits.end(), hitDiagonalSort);
-	else
-		sort(hits.begin(), hits.end(), hitAntiDiagonalSort);
+	// if (st == 0)
+	// 	sort(hits.begin(), hits.end(), hitDiagonalSort);
+	// else
+	// 	sort(hits.begin(), hits.end(), hitAntiDiagonalSort);
 
 	uint32_t n = hits.size();
 	uint32_t cs = s, ce = s;
@@ -41,7 +41,8 @@ void storeDiagCluster (vector<hit> &hits, clusters &clust, bool st, idxopt_t &io
 			      yStart = hits[cs].y, 
 			      yEnd = hits[cs].y + iopt.k;
 
-		while (ce < n and abs(DiagonalDifference(hits[ce], hits[ce - 1], st)) < fopts.clusterMaxDiag) {
+		while (ce < n and abs(DiagonalDifference(hits[ce], hits[ce - 1], st)) < fopts.clusterMaxDiag 
+					  and minGapDifference(hits[ce], hits[ce - 1]) <= fopts.clusterMaxDist ) {
 			xStart = min(xStart, hits[ce].x);
 			xEnd   = max(xEnd, hits[ce].x + iopt.k);
 			yStart = min(yStart, hits[ce].y);
@@ -55,11 +56,11 @@ void storeDiagCluster (vector<hit> &hits, clusters &clust, bool st, idxopt_t &io
 	}	
 
 	if (fopts.debug) {
-		ofstream rclust("diagcluster.dots");
+		ofstream rclust("diagcluster.bed", ios_base::app);
 		for (int m = 0; m < clust.size(); m++) {
 			for (int c = clust[m].s; c < clust[m].e; ++c) {
 				rclust << hits[c].x << "\t" << hits[c].y << "\t" << hits[c].x + iopt.k << "\t"
-					   << hits[c].y + iopt.k << "\t" << m << "\t" << clust[m].strand << "\t" << iopt.k << endl;				
+					   << hits[c].y + iopt.k << "\t" << iopt.k << "\t"  << clust[m].strand  << "\t" << m << endl;				
 			}
 		}
 		rclust.close();		

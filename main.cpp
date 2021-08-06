@@ -57,8 +57,8 @@ int main(int argc, char *argv[])
 		rf_hit(i, i, mi_s, fhits, rhits, fopts, siopt, 1); // find rhits also
 		cerr << "finish rf_hit!" << endl;
 		clusters clusts;
-		cleanDiag(fhits, fopts, 0);
-		cleanDiag(rhits, fopts, 1);
+		cleanDiag(fhits, fopts, siopt, 0);
+		cleanDiag(rhits, fopts, siopt, 1);
 		cerr << "finish cleanDiag!" << endl;
 		storeDiagCluster(fhits, clusts, 0, siopt, fopts);
 		storeDiagCluster(rhits, clusts, 1, siopt, fopts);

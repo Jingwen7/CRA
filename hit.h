@@ -18,9 +18,9 @@ public:
 
 void rf_hit(const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fhits, vector<hit> &rhits, const fragopt_t &fopts, const idxopt_t &iopt, bool self); 
 
-void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, bool st);
+void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, const idxopt_t &iopt, bool st);
 
-inline int64_t DiagonalDifference(hit &a, hit &b, bool strand=0) {
+inline int64_t DiagonalDifference(hit &a, hit &b, bool strand = 0) {
 	int64_t aDiag, bDiag;
 	if (strand == 0) { // Matches
 		aDiag = (int64_t)a.x - (int64_t)a.y;
@@ -32,6 +32,19 @@ inline int64_t DiagonalDifference(hit &a, hit &b, bool strand=0) {
 		bDiag= (int64_t) b.x + (int64_t) b.y;
 		return aDiag - bDiag;				
 	}
+}
+
+
+inline int64_t maxGapDifference(hit &a, hit &b) {
+	int64_t aDiff = abs((int64_t)b.x - (int64_t)a.x);
+	int64_t bDiff = abs((int64_t)b.y - (int64_t)a.y);
+	return max(aDiff, bDiff);
+}
+
+inline int64_t minGapDifference (hit &a, hit &b) {
+	int64_t aDiff = abs((int64_t)b.x - (int64_t)a.x);
+	int64_t bDiff = abs((int64_t)b.y - (int64_t)a.y);
+	return min(aDiff, bDiff);
 }
 
 bool hitDiagonalSort (const hit &a, const hit &b);
