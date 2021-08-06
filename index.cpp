@@ -74,7 +74,7 @@ void idx_t::idx_gen (const fragopt_t &fopts)
 	for (int i = 0; i < genome->getSize(); i++) {
 		sketch(genome->getSeq(i), genome->getLen(i), k, w, i, idxv, fopts.debug);
 	}
-	cerr << "idxv.size(): " << idxv.size() << endl;;
+	cerr << "idxv.size(): " << idxv.size() << endl;
 };
 
 void idx_t::idx_sort (const fragopt_t &fopts) 
@@ -92,7 +92,8 @@ void idx_t::idx_sort (const fragopt_t &fopts)
 	dnkmer = 0; sgnkmer = 0;
 	// cerr << "pmask: " << pmask << endl;
 	// cerr << "rmask: " << rmask << endl;
-	for (int i = 1; i <= idxv.size(); i++) {
+	uint32_t i;
+	for (i = 1; i <= idxv.size(); i++) {
 		if (i < idxv.size() and (idxv[i].x & presorter.pmask) == (idxv[i - 1].x & presorter.pmask)) continue;
 		else {
 			dnkmer++;
@@ -124,6 +125,7 @@ void idx_t::idx_sort (const fragopt_t &fopts)
 				else {
 					kmerhash::iterator t = seqh[rid]->find(idxv[j].x);
 					if (t != seqh[rid]->end()) (*seqh[rid])[idxv[j].x].push_back(pos);
+					else seqh[rid]->insert(make_pair(idxv[j].x, vector<uint32_t>(1, pos)));
 				}
 
 				//debug
