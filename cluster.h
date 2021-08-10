@@ -103,6 +103,4 @@ void fragLabel(const clusters &clusts, fragopt_t &fopts);
 
 void flipCluster(clusters &clusts, const fragopt_t &fopts, const idxopt_t &iopt, bool dense);
 
-
-
 #endif

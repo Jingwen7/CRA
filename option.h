@@ -27,7 +27,7 @@ public:
 	{
 		CleanMaxDiag = 100;
 		DiagMinCluster = 100;
-		clusterMaxDiag = 500;
+		clusterMaxDiag = 20;
 		clusterMaxDist = 800;
 		clusterMinLength = 1000;
 		// CleanMaxDiag = 100;
