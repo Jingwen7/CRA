@@ -6,25 +6,32 @@ library("optparse")
 option_list <- list( 
     make_option(c("-c", "--cluster"), action="store_true", default=TRUE,
         help="Color different clusters"),
+    make_option(c("-l", "--line"), action="store_true", default=FALSE,
+        help="Show lines"),
   	make_option(c("-f", "--file"), type="character", default=NULL, 
               help="file name", metavar="character")
-    # make_option(c("-o", "--out"), type="character", default="out.txt", 
-    #           help="output file name [default= %default]", metavar="character")
     )
 
 opt <- parse_args(OptionParser(option_list=option_list))
 
-plotMatches <- function(file, cluster) {
+plotMatches <- function(file, cluster, line) {
 	#----------------for-matches.dots & rev-matches.dots--------------------- --------------------- 
 	# qStart, tStart, qEnd, tEnd
 	if (cluster == TRUE) {
 		clust <- read.delim(paste0(file, ".bed"), sep = "\t", header = FALSE)
-		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand", "cluster")
+		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand", "cluster", "dense")
 		fclust <- clust[which(clust$strand == 0),]
 		t <- ggplot(clust[, c(1:4)]) + 
-			geom_segment(aes(x = xStart, y = yEnd, xend = xEnd, yend = yStart, color = factor(fclust$cluster)), 
+			geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd, linetype = factor(fclust$dense), color = factor(fclust$cluster)), 
 				data = fclust[, c(1:4)], size = 1.5)
-		t <- t + xlab("read") + ylab("genome") + ggtitle("matches") 
+		t <- t + xlab("read") + ylab("genome") + ggtitle("matches")
+		if (line == TRUE) {
+			lines <- read.delim("lines.bed", sep = "\t", header = FALSE)
+			colnames(lines) <- c("intercept")
+			for (row in 1:nrow(lines)) {
+				t <- t + geom_hline(yintercept = lines[row, "intercept"], linetype="dashed", color = "black")
+			}
+		}
 		# ggsave("for_rev.pdf", width = 7, height = 7.09, dpi=200,path=path)
 
 		# rclust <- clust[which(clust$strand == 1),]
@@ -37,21 +44,21 @@ plotMatches <- function(file, cluster) {
 		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "strand")
 		fclust <- clust[which(clust$strand == 0),]
 		t <- ggplot(clust[, c(1:4)]) + 
-			geom_segment(aes(x = xStart, y = yEnd, xend = xEnd, yend = yStart), 
+			geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd), 
 				color ='black', data = fclust[, c(1:4)], size = 1.5)
 		t <- t + xlab("read") + ylab("genome") + ggtitle("matches") 
 		# ggsave("for_rev.pdf", width = 7, height = 7.09, dpi=200,path=path)
 
 		rclust <- clust[which(clust$strand == 1),]
 		colnames(rclust) <-  c("xStart", "yStart", "xEnd", "yEnd", "strand")
-		t + geom_segment(aes(x = xStart, y = yEnd, xend = xEnd, yend = yStart), 
+		t + geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd), 
 		        color ='red', data = rclust[, c(1:4)], size = 1.5)
 		ggsave(paste0(file, ".pdf"), device = "pdf", width = 7, height = 7.09, dpi=200)		
 	}
 
 }
 
-plotMatches(opt$file, opt$cluster)
+plotMatches(opt$file, opt$cluster, opt$line)
 
 
 
