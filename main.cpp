@@ -1,8 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string>
-#include <errno.h>
-#include <zlib.h>
 #include "genome.h"
 #include "index.h"
 #include "option.h"
@@ -10,7 +5,12 @@
 #include "rfpriv.h"
 #include "hit.h"
 #include "cluster.h"
-
+#include <stdlib.h>
+#include <stdio.h>
+#include <string>
+#include <errno.h>
+#include <zlib.h>
+#include <set>
 
 int main(int argc, char *argv[])
 {
@@ -51,35 +51,76 @@ int main(int argc, char *argv[])
 
 	// find small & dense hits for each sample
 	uint32_t i, j;
-	vector<hit> fhits, rhits;
 	// vector<sample> samples(genome->getSize());
 	for (i = 0; i < genome.getSize(); ++i) {
-		rf_hit(i, i, mi_s, fhits, rhits, fopts, siopt, 1); // find rhits also
-		cerr << "finish rf_hit!" << endl;
-		clusters clusts;
-		cleanDiag(fhits, fopts, siopt, 0);
-		cleanDiag(rhits, fopts, siopt, 1);
-		cerr << "finish cleanDiag!" << endl;
-		storeDiagCluster(fhits, clusts, 0, siopt, fopts);
-		storeDiagCluster(rhits, clusts, 1, siopt, fopts);
-		cerr << "finish storeDiagCluster!" << endl;
+
+		// get diagonal cluster matches
+		vector<hit> dense_fhits, dense_rhits;
+		rf_hit(i, i, mi_s, dense_fhits, dense_rhits, fopts, siopt, 1); // find rhits also
+		cerr << "finish rf_hit for dense kmer!" << endl;
+		clusters dense_clusts;
+		cleanDiag(dense_fhits, dense_clusts, fopts, siopt, 0);
+		cleanDiag(dense_rhits, dense_clusts, fopts, siopt, 1);
+		cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
+
+		vector<hit> sparse_fhits, sparse_rhits;
+		rf_hit(i, i, mi_l, sparse_fhits, sparse_rhits, fopts, liopt, 1); // find rhits also
+		cerr << "finish rf_hit for dense kmer!" << endl;
+		clusters sparse_clusts;
+		cleanDiag(sparse_fhits, sparse_clusts, fopts, liopt, 0);
+		cleanDiag(sparse_rhits, sparse_clusts, fopts, liopt, 1);
+		cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
+
+		// flip the clusters
+		flipCluster(dense_clusts, fopts, siopt, 1);
+		flipCluster(sparse_clusts, fopts, liopt, 0);
+
+		// get the breakpoints on y-axis
+		set<uint32_t> breakpoints;
+		for (j = 0; j < dense_clusts.size(); ++j) {
+			breakpoints.insert(dense_clusts[j].yStart);
+			breakpoints.insert(dense_clusts[j].yEnd);
+		}
+		for (j = 0; j < sparse_clusts.size(); ++j) {
+			breakpoints.insert(sparse_clusts[j].yStart);
+			breakpoints.insert(sparse_clusts[j].yEnd);			
+		}
+		if (fopts.debug) {
+			ofstream fclust("lines.bed");
+		  	for (auto it = breakpoints.begin(); it != breakpoints.end(); ++it)
+		    	fclust << *it << endl;
+			// for (uint32_t m = 0; m < hits.size(); ++m) {
+			// 	// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
+			// 	fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t" << counts[m] << endl;
+			// }
+			fclust.close();			
+		}
+
+		cerr << " get all the breakpoints on y-axis!" << endl;
+
+
+		// 
+
+		// storeDiagCluster(fhits, clusts, 0, siopt, fopts);
+		// storeDiagCluster(rhits, clusts, 1, siopt, fopts);
+		// cerr << "finish storeDiagCluster!" << endl;
 
 		// sort(clusts.begin(), clusts.end(), clustDiagonalSortOp);
 
-		// find overlap clusters && trim the edge of clusters && add back the main diagonal 
-		trim_ovpClusters(clusts, fopts.clusterTrimedge);
-		cerr << "finish trim_ovpClusters!" << endl;
-		// clusts.push_back(cluster(0, 0, 0, genoms->getLen(i), 0, genoms->getLen(i), 0));
+		// // find overlap clusters && trim the edge of clusters && add back the main diagonal 
+		// trim_ovpClusters(clusts, fopts.clusterTrimedge);
+		// cerr << "finish trim_ovpClusters!" << endl;
+		// // clusts.push_back(cluster(0, 0, 0, genoms->getLen(i), 0, genoms->getLen(i), 0));
 
-		// split clusters by endpoints
-		clusters splitclusts;
-		splitClusters(clusts, splitclusts);
-		trim_ovpClusters(splitclusts, 100);
-		cerr << "finish splitClusters!" << endl;
+		// // split clusters by endpoints
+		// clusters splitclusts;
+		// splitClusters(clusts, splitclusts);
+		// trim_ovpClusters(splitclusts, 100);
+		// cerr << "finish splitClusters!" << endl;
 
-		// get the fragment label for each sample
-		fragLabel(splitclusts, fopts);
-		cerr << "finish fragLabel!" << endl;
+		// // get the fragment label for each sample
+		// fragLabel(splitclusts, fopts);
+		// cerr << "finish fragLabel!" << endl;
 
 
 

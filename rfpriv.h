@@ -25,6 +25,7 @@ typedef map<uint256_t, vector<uint32_t>> kmerhash; // (<=254) minimizer + (1)dir
 enum pointType { s, e };
 typedef tuple<pointType, uint32_t, uint32_t> pointInfo; // point type, coord, cluster_index
 typedef struct { uint32_t s; uint32_t e; uint32_t code; uint32_t cidx;} fragmatch; // start, end, code, cluster_index 
+typedef pair<uint32_t, uint32_t> intv;
 // void sketch(const char *str, int len, int w, int k, uint32_t rid, vector<idx_320_t> &idxv, uint32_t totalLen, bool is_hpc);
 void sketch(char *seq, uint32_t seqLen, uint32_t k, uint32_t w, uint32_t rid, vector<idx_320_t> &idxv, bool debug);
 

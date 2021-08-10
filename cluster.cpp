@@ -1,11 +1,11 @@
 #include "rfpriv.h"
 #include "assert.h"
-#include "hit.h"
 #include "cluster.h"
 #include <set>
 #include <tuple>
 #include <utility>
 #include <map>
+#include <fstream>
 
 bool clustDiagonalSort (const cluster &a, const cluster &b) {
 	int64_t aDiag = (int64_t) a.xStart - (int64_t) a.yStart;
@@ -25,45 +25,21 @@ bool clustAntiDiagonalSortOp(const cluster &a, const cluster &b) {
 		return a.xStart < b.xStart;
 }
 
-void storeDiagCluster (vector<hit> &hits, clusters &clust, bool st, idxopt_t &iopt, fragopt_t &fopts) 
-{
-	// if (st == 0)
-	// 	sort(hits.begin(), hits.end(), hitDiagonalSort);
-	// else
-	// 	sort(hits.begin(), hits.end(), hitAntiDiagonalSort);
 
-	uint32_t n = hits.size();
-	uint32_t cs = s, ce = s;
-	while (cs < n) {
-		ce = cs + 1;
-		uint32_t  xStart = hits[cs].x, 
-				  xEnd = hits[cs].x + iopt.k, 
-			      yStart = hits[cs].y, 
-			      yEnd = hits[cs].y + iopt.k;
-
-		while (ce < n and abs(DiagonalDifference(hits[ce], hits[ce - 1], st)) < fopts.clusterMaxDiag 
-					  and minGapDifference(hits[ce], hits[ce - 1]) <= fopts.clusterMaxDist ) {
-			xStart = min(xStart, hits[ce].x);
-			xEnd   = max(xEnd, hits[ce].x + iopt.k);
-			yStart = min(yStart, hits[ce].y);
-			yEnd   = max(yEnd, hits[ce].y + iopt.k);
-			ce++;
-		}	
-
-		if (ce - cs >= fopts.DiagMinCluster and xEnd - xStart >= fopts.clusterMinLength and yEnd - yStart >= fopts.clusterMinLength) 
-			clust.push_back(cluster(cs, ce, xStart, xEnd, yStart, yEnd, st));
-		cs=ce;
-	}	
-
+void flipCluster(clusters &clusts, const fragopt_t &fopts, const idxopt_t &iopt, bool dense) {
+	int init = clusts.size();
+	int i;
+	for (i = 0; i < init; ++i) {
+		clusts.push_back(cluster(clusts[i].yStart, clusts[i].yEnd, clusts[i].xStart, clusts[i].xEnd, clusts[i].strand));
+		clusts.back().diag = clusts[i].diag;
+	} 
 	if (fopts.debug) {
-		ofstream rclust("diagcluster.bed", ios_base::app);
-		for (int m = 0; m < clust.size(); m++) {
-			for (int c = clust[m].s; c < clust[m].e; ++c) {
-				rclust << hits[c].x << "\t" << hits[c].y << "\t" << hits[c].x + iopt.k << "\t"
-					   << hits[c].y + iopt.k << "\t" << iopt.k << "\t"  << clust[m].strand  << "\t" << m << endl;				
-			}
+		ofstream clust("cluster.bed", ios_base::app);
+		for (int m = 0; m < clusts.size(); m++) {
+			clust << clusts[m].xStart << "\t" << clusts[m].yStart << "\t" << clusts[m].xEnd << "\t"
+				   << clusts[m].yEnd << "\t" << clusts[m].xEnd - clusts[m].xStart << "\t"  << clusts[m].strand  << "\t" << m << "\t" << dense << endl;				
 		}
-		rclust.close();		
+		clust.close();		
 	}
 }
 
@@ -346,14 +322,16 @@ void fragLabel(const clusters &clusts, fragopt_t &fopts)
 
 	sort(fms.begin(), fms.end(), sortFragmatch);
 
-	if (fopts.debug) {
-		ofstream fclust("Fragmatch.bed");
-		for (uint32_t m = 0; m < fms.size(); ++m) {
-			fclust << fms[m].s << "\t" << fms[m].e << "\t" << fms[m].code << "\t"
-					<< fms[m].cidx << "\t" << m << endl;
-		}
-		fclust.close();			
-	}
+	// if (fopts.debug) {
+	// 	ofstream fclust("Fragmatch.bed");
+	// 	for (uint32_t m = 0; m < fms.size(); ++m) {
+	// 		fclust << fms[m].s << "\t" << fms[m].e << "\t" << fms[m].code << "\t"
+	// 				<< fms[m].cidx << "\t" << m << endl;
+	// 	}
+	// 	fclust.close();			
+	// }
 }
+
+
 
 

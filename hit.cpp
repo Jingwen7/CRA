@@ -1,6 +1,7 @@
 #include "rfpriv.h"
 #include "hit.h"
 #include "index.h"
+#include "cluster.h"
 #include <vector>
 #include <map>
 
@@ -26,6 +27,22 @@ bool hitAntiDiagonalSort (const hit &a, const hit &b)
 	else
 		return a.x < b.x;
 }	
+
+bool hitCartesianSort (const hit &a, const hit &b)
+{
+	if (a.x != b.x)
+		return a.x < b.x;
+	else
+		return a.y < b.y;
+}	
+
+bool hitAntiCartesianSort (const hit &a, const hit &b)
+{
+	if (a.x != b.x)
+		return a.x < b.x;
+	else
+		return a.y > b.y;
+}
 
 inline void find_match (vector<hit> &hits, const uint256_t &mi, const vector<uint32_t> &pos, const kmerhash &khash, bool acrossStrand)
 {
@@ -103,13 +120,13 @@ void rf_hit(const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fh
 		}
 	}
 	if (fopts.debug) {
-		ofstream fclust("matches.bed");
-		cerr << "forward matches: " << fhits.size() << endl;
+		ofstream fclust("hits.bed");
+		cerr << "forward hits: " << fhits.size() << endl;
 		for (uint32_t m = 0; m < fhits.size(); ++m) {
 			// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
 			fclust << fhits[m].x << "\t" << fhits[m].y << "\t" << fhits[m].x + iopt.k << "\t" << fhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "0" << "\t0" << endl;
 		}
-		cerr << "reverse matches: " << rhits.size() << endl;
+		cerr << "reverse hits: " << rhits.size() << endl;
 		for (uint32_t m = 0; m < rhits.size(); ++m) {
 			fclust << rhits[m].x << "\t" << rhits[m].y << "\t" << rhits[m].x + iopt.k << "\t" << rhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "1" << "\t" << endl;
 		}
@@ -117,7 +134,45 @@ void rf_hit(const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fh
 	}
 }
 
-void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, const idxopt_t &iopt, bool st)
+void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clust, bool st, const idxopt_t &iopt, const fragopt_t &fopts) 
+{
+	sort(hits.begin() + s, hits.begin() + e, hitCartesianSort);
+	int initial = clust.size();
+	uint32_t cs = s, ce = s;
+	while (cs < e) {
+		ce = cs + 1;
+		uint32_t  xStart = hits[cs].x, 
+				  xEnd = hits[cs].x + iopt.k, 
+			      yStart = hits[cs].y, 
+			      yEnd = hits[cs].y + iopt.k;
+
+		while (ce < e and abs(DiagonalDifference(hits[ce], hits[ce - 1], st)) < fopts.clusterMaxDiag 
+					  and minGapDifference(hits[ce], hits[ce - 1]) <= fopts.clusterMaxDist ) {
+			xStart = min(xStart, hits[ce].x);
+			xEnd   = max(xEnd, hits[ce].x + iopt.k);
+			yStart = min(yStart, hits[ce].y);
+			yEnd   = max(yEnd, hits[ce].y + iopt.k);
+			ce++;
+		}	
+
+		if (ce - cs >= fopts.DiagMinCluster and xEnd - xStart >= fopts.clusterMinLength and yEnd - yStart >= fopts.clusterMinLength) 
+			clust.push_back(cluster(cs, ce, xStart, xEnd, yStart, yEnd, st));
+		cs = ce;
+	}	
+
+	if (fopts.debug) {
+		ofstream rclust("diagcluster.bed", ios_base::app);
+		for (int m = initial; m < clust.size(); m++) {
+			for (int c = clust[m].s; c < clust[m].e; ++c) {
+				rclust << hits[c].x << "\t" << hits[c].y << "\t" << hits[c].x + iopt.k << "\t"
+					   << hits[c].y + iopt.k << "\t" << iopt.k << "\t"  << clust[m].strand  << "\t" << m << endl;				
+			}
+		}
+		rclust.close();		
+	}
+}
+
+void cleanDiag(vector<hit> &hits, clusters &clust, const fragopt_t &fopts, const idxopt_t &iopt, bool st)
 {
 	//sort hits
 	if (!st) {
@@ -128,6 +183,9 @@ void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, const idxopt_t &iopt, 
 	}
 	uint32_t n = hits.size();
 	vector<bool> onDiag(n, 0);
+	vector<int> counts(n, -1);
+	vector<int> rev_counts(n, -1);
+	int counter = 0;
 	if (n <= 1) return;
 	//
 	// starting from forward order
@@ -151,8 +209,11 @@ void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, const idxopt_t &iopt, 
 			prevOnDiag = false;
 			if (i - diagStart + 1 < fopts.DiagMinCluster)// [diagStart, i]
 				for (j = diagStart; j <= i; ++j) { foward_onDiag[j] = false; }
-			else 
+			else {
 				foward_onDiag[i] = true; 
+				for (j = diagStart; j <= i; ++j) { counts[j] = counter; }
+				counter++;
+			}
 		}
 		else
 			prevOnDiag = foward_onDiag[i];
@@ -175,10 +236,16 @@ void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, const idxopt_t &iopt, 
 		}
 		else if (prevOnDiag == true and reverse_onDiag[i] == false) {
 			prevOnDiag = false;
-			if (diagStart - i + 1 < fopts.DiagMinCluster) // [diagStart, i]
-				for (j = i; j <= diagStart; ++j) { reverse_onDiag[j] = false; }
-			else 
+			if (diagStart - i + 1 < fopts.DiagMinCluster) {// [diagStart, i]
+				for (j = i; j <= diagStart; ++j) { 
+					reverse_onDiag[j] = false; 
+					counts[j] = -1;
+				}
+			}
+			else {
 				reverse_onDiag[i] = true;
+				counter++;
+			}
 		}
 		else
 			prevOnDiag = reverse_onDiag[i];
@@ -195,24 +262,38 @@ void cleanDiag(vector<hit> &hits, const fragopt_t &fopts, const idxopt_t &iopt, 
 	uint32_t c = 0;
 	for (i = 0; i < n; ++i) {
 		if (onDiag[i]) {
-			hits[c] = hits[i]; 
+			hits[c] = hits[i];
+			counts[c] = counts[i];
 			c++;
 		}
 	}
 	cerr << "before cleaning: " << hits.size() << endl;
 	cerr << "after cleaning: " << c << endl;
 	hits.resize(c);
+	counts.resize(c);
 
 	if (fopts.debug) {
 		ofstream fclust("cleanmatches.bed", ios_base::app);
 		for (uint32_t m = 0; m < hits.size(); ++m) {
 			// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
-			fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t0" << endl;
+			fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t" << counts[m] << endl;
 		}
 		fclust.close();			
 	}
-};
 
+	//
+	// Store diagonal in clusters
+	//
+	uint32_t count_s = 0; c = 1;
+	while (c <= counts.size()) {
+		if (counts[c] == counts[c-1]) {c++; continue;}
+		if (c == counts.size() and count_s == c) break;
+		assert(count_s < c);
+		storeDiagCluster (count_s, c, hits, clust, st, iopt, fopts);
+		count_s = c;	
+		c++;			
+	}	
+};
 
 
 

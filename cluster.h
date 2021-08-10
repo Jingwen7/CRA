@@ -3,7 +3,6 @@
 
 #include "rfpriv.h"
 #include "option.h"
-#include "hit.h"
 
 class cluster
 {
@@ -11,13 +10,29 @@ public:
 	bool strand;
 	uint32_t s, e;
 	uint32_t xStart, xEnd, yStart, yEnd;
-	uint32_t cidx;
+	uint32_t cidx; //??
+	uint32_t diag;
+
+	cluster (uint32_t XStart, uint32_t XEnd, uint32_t YStart, uint32_t YEnd, bool st) :
+	xStart(XStart), xEnd(XEnd), yStart(YStart), yEnd(YEnd), strand(st) {
+		if ((xEnd - xStart) == (yEnd - yStart)) diag = 0;
+		else
+			diag = (xEnd - xStart) > (yEnd - yStart) ? ((int64_t)(xEnd - xStart) - (int64_t)(yEnd - yStart)) : ((int64_t)(yEnd - yStart) - (int64_t)(xEnd - xStart));
+	};	
 
 	cluster (uint32_t S, uint32_t E, uint32_t XStart, uint32_t XEnd, uint32_t YStart, uint32_t YEnd, bool st) : 
-	s(S), e(E), xStart(XStart), xEnd(XEnd), yStart(YStart), yEnd(YEnd), strand(st) {};
+	s(S), e(E), xStart(XStart), xEnd(XEnd), yStart(YStart), yEnd(YEnd), strand(st) {
+		if ((xEnd - xStart) == (yEnd - yStart)) diag = 0;
+		else
+			diag = (xEnd - xStart) > (yEnd - yStart) ? ((int64_t)(xEnd - xStart) - (int64_t)(yEnd - yStart)) : ((int64_t)(yEnd - yStart) - (int64_t)(xEnd - xStart));
+	};
 
 	cluster (uint32_t XStart, uint32_t XEnd, uint32_t YStart, uint32_t YEnd, bool st, uint32_t M) : 
-	xStart(XStart), xEnd(XEnd), yStart(YStart), yEnd(YEnd), strand(st), cidx(M) {};
+	xStart(XStart), xEnd(XEnd), yStart(YStart), yEnd(YEnd), strand(st), cidx(M) {
+		if ((xEnd - xStart) == (yEnd - yStart)) diag = 0;
+		else
+			diag = (xEnd - xStart) > (yEnd - yStart) ? ((int64_t)(xEnd - xStart) - (int64_t)(yEnd - yStart)) : ((int64_t)(yEnd - yStart) - (int64_t)(xEnd - xStart));
+	};
 	~cluster () {};
 };
 
@@ -72,9 +87,9 @@ public:
 
 typedef vector<cluster> clusters;
 
-void storeDiag(vector<hit> &hits, clusters &clust, idxopt_t &iopt, fragopt_t &fopt, bool st = 0);
+// void storeDiag(vector<hit> &hits, clusters &clust, idxopt_t &iopt, fragopt_t &fopt, bool st = 0);
 
-void storeDiagCluster(vector<hit> &hits, clusters &clust, bool st, idxopt_t &iopt, fragopt_t &fopt);
+// void storeDiagCluster(vector<hit> &hits, clusters &clust, bool st, idxopt_t &iopt, fragopt_t &fopt);
 
 void mergeDiagCluster(clusters &clusts, int64_t mergeDiag, bool st);
 
@@ -86,6 +101,7 @@ void splitClusters(clusters & clusts, clusters & splitclusts);
 
 void fragLabel(const clusters &clusts, fragopt_t &fopts);
 
+void flipCluster(clusters &clusts, const fragopt_t &fopts, const idxopt_t &iopt, bool dense);
 
 
 
