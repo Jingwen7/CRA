@@ -62,7 +62,6 @@ void StoreKmer(char *seq, uint32_t pos, uint32_t k, idx_320_t &t) {
 		t.x <<= 2;
 		t.x += seq_nt4_table[(uint8_t)seq[p]];
 	}
-	cerr << endl;
 	t.x <<= 1; // shift one left for last strand bit
 }
 
@@ -93,7 +92,6 @@ void KmerRC(idx_320_t a, idx_320_t &b, uint32_t k, char * seq) {
 		b.x <<= 2;
 		b.x += least;
 	}
-	cerr << endl;
 	b.x <<= 1; // shift one for last strand bit
 	b.x |= rev_mask;
 }

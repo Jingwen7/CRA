@@ -56,100 +56,13 @@ int main(int argc, char *argv[])
 	// find small & dense hits for each sample
 	uint32_t i, j;
 	vector<sample> samples(genome.getSize());
+
 	for (i = 0; i < genome.getSize(); ++i) {
-		
+		cerr << "process sample: " << *genome.getName(i) << " " << i << endl;
+		samples[i].init(i, genome.getName(i));
 		samples[i].process (i, i, mi_s, mi_l, fopts, siopt, liopt, 1);
-
-		// // get diagonal cluster matches
-		// vector<hit> dense_fhits, dense_rhits;
-		// rf_hit(i, i, mi_s, dense_fhits, dense_rhits, fopts, siopt, 1); // find rhits also
-		// cerr << "finish rf_hit for dense kmer!" << endl;
-		// // clusters dense_clusts;
-		// cleanDiag(dense_fhits, samples[i].dense_clusts, fopts, siopt, 0);
-		// cleanDiag(dense_rhits, samples[i].dense_clusts, fopts, siopt, 1);
-		// dense_fhits.clear();
-		// dense_rhits.clear();
-		// cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
-
-		// vector<hit> sparse_fhits, sparse_rhits;
-		// rf_hit(i, i, mi_l, sparse_fhits, sparse_rhits, fopts, liopt, 1); // find rhits also
-		// cerr << "finish rf_hit for dense kmer!" << endl;
-		// // clusters sparse_clusts;
-		// cleanDiag(sparse_fhits, samples[i].sparse_clusts, fopts, liopt, 0);
-		// cleanDiag(sparse_rhits, samples[i].sparse_clusts, fopts, liopt, 1);
-		// sparse_fhits.clear();
-		// sparse_rhits.clear();
-		// cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
-
-		// // flip the clusters
-		// flipCluster(samples[i].dense_clusts, fopts, siopt, 1);
-		// flipCluster(samples[i].sparse_clusts, fopts, liopt, 0);
-
-		// // (TODO) Jingwen: make sure the code work for inversed cluster
-		// // trim the breakpoints on y-axis
-		// vector<uint32_t> bps_Y, bps_X;
-		// trimOnY(samples[i].dense_clusts, samples[i].sparse_clusts, bps_Y, fopts);
-
-		// // trim the breakpoints on x-axis;
-		// trimOnX(samples[i].dense_clusts, samples[i].sparse_clusts, bps_Y, bps_X, fopts);
-		// samples[i].breakpoints = bps_X;
-		// bps_Y.clear();
-		// bps_X.clear();
-
-
-
-
-
-
-		// storeDiagCluster(fhits, clusts, 0, siopt, fopts);
-		// storeDiagCluster(rhits, clusts, 1, siopt, fopts);
-		// cerr << "finish storeDiagCluster!" << endl;
-
-		// sort(clusts.begin(), clusts.end(), clustDiagonalSortOp);
-
-		// // find overlap clusters && trim the edge of clusters && add back the main diagonal 
-		// trim_ovpClusters(clusts, fopts.clusterTrimedge);
-		// cerr << "finish trim_ovpClusters!" << endl;
-		// // clusts.push_back(cluster(0, 0, 0, genoms->getLen(i), 0, genoms->getLen(i), 0));
-
-		// // split clusters by endpoints
-		// clusters splitclusts;
-		// splitClusters(clusts, splitclusts);
-		// trim_ovpClusters(splitclusts, 100);
-		// cerr << "finish splitClusters!" << endl;
-
-		// // get the fragment label for each sample
-		// fragLabel(splitclusts, fopts);
-		// cerr << "finish fragLabel!" << endl;
-
-
-
-
-
-
-		// // find copy boundary for each sample based on the hits
-		// clusters clusts;
-		// cleanDiag(fhits);
-		// storeDiagCluster(fhits, clusts, siopt, fopt);
-		// sort(clusts.begin(), clusts.end(), clustDiagonalSortOp);
-		// if (clusts.size == 0)
-		// 	// do something 
-		// int64_t mergeDiag = min((int64_t)clusts[0].xStart - (int64_t)clusts[0].xEnd - 1000, 3000);
-		// clusters reclusts;
-		// mergeDiagCluster(clusts, reclusts, mergeDiag, 0);
-
-		// findCopyLoc(clusts); // copylen
-		// findDel(clusts, reclusts);
-		// fhits.clear();
-		// rhits.clear();
+		samples[i].dump(genome.getName(i), fopts);
 	}
-
-
-	// find large hits for each sample
-	for (i = 0; i < genome.getSize(); ++i) {
-		// check each small grid, unify them if a full cluster present; fragment them if a half cluster present; 
-	}	
-
 
 	// find large hits for a pair of sample
 	for (i = 0; i < genome.getSize(); ++i) {

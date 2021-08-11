@@ -30,7 +30,7 @@ endif
 
 all:$(PROG)
 
-rf: main.o index.o sketch.o hit.o cluster.o 
+rf: main.o index.o sketch.o hit.o cluster.o breakpoint.o sample.o
 	$(CXX) $(CFLAGS) -o $@ $^ -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS) 
 
 main.o: main.cpp genome.h index.h option.h input.h
@@ -47,6 +47,12 @@ cluster.o: cluster.cpp cluster.h rfpriv.h hit.h
 
 hit.o: hit.cpp hit.h rfpriv.h index.h
 	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS)
+
+breakpoint.o: breakpoint.cpp breakpoint.h cluster.h
+	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS)
+
+sample.o: sample.cpp breakpoint.h cluster.h rfpriv.h hit.h option.h index.h
+	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS)	
 
 clean:
 	rm -f $(PROG) $(PROG_EXTRA) *.o 

@@ -50,7 +50,7 @@ void modifyClusterBoundaries (vector<cluster> &clusts, uint32_t original, uint32
 	}
 }
 
-void trimClusters(vector<uint32_t> &bps, vector<uint32_t> &trimInfo, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, bool axis = 0)
+void trimClusters(string * readname, vector<uint32_t> &bps, vector<uint32_t> &trimInfo, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, bool axis = 0)
 {
 	uint32_t i;
 	vector<bool> remove(bps.size(), 0);
@@ -71,7 +71,7 @@ void trimClusters(vector<uint32_t> &bps, vector<uint32_t> &trimInfo, vector<clus
 	bps.resize(c);
 }
 
-void trimOnY(vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vector<uint32_t> &bps, const fragopt_t &fopts)
+void trimOnY(string * readname, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vector<uint32_t> &bps, const fragopt_t &fopts)
 {
 	set<uint32_t> breakpoints;
 	uint32_t j;
@@ -85,30 +85,28 @@ void trimOnY(vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vect
 	}
   	for (auto it = breakpoints.begin(); it != breakpoints.end(); ++it)
     	bps.push_back(*it);
-	if (fopts.debug) {
-		ofstream fclust("lines.bed");
-	  	for (auto it = breakpoints.begin(); it != breakpoints.end(); ++it)
-	    	fclust << *it << endl;
-		fclust.close();			
-	}
+	// if (fopts.debug) {
+	// 	ofstream fclust("lines.bed");
+	//   	for (auto it = breakpoints.begin(); it != breakpoints.end(); ++it)
+	//     	fclust << *it << endl;
+	// 	fclust.close();			
+	// }
     breakpoints.clear();
-	cerr << " get all the breakpoints on y-axis!" << endl;
-
 
 	// trim the breakpoints on y-axis
 	vector<uint32_t> trimInfo(bps.size());
 	iota(trimInfo.begin(), trimInfo.end(), 0);
 	trimBreakpoints(bps, trimInfo);
-	trimClusters(bps, trimInfo, dense_clusts, sparse_clusts, 0);
+	trimClusters(readname, bps, trimInfo, dense_clusts, sparse_clusts, 0);
 	if (fopts.debug) {
-		ofstream fclust("trimlines_Y.bed");
+		ofstream fclust("trimlines_Y.bed", ios_base::app);
 	  	for (auto& it : bps)
-	    	fclust << it << endl;
+	    	fclust << it << "\t" << *readname << endl;
 		fclust.close();			
 	}	
 }
 
-void trimOnX(vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vector<uint32_t> &bps_Y, vector<uint32_t> &bps_X, const fragopt_t &fopts)
+void trimOnX(string * readname, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vector<uint32_t> &bps_Y, vector<uint32_t> &bps_X, const fragopt_t &fopts)
 {
 	set<uint32_t> breakpoints_Y;
 	set<uint32_t> breakpoints_X;
@@ -147,13 +145,15 @@ void trimOnX(vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vect
 	vector<uint32_t> trimInfo(bps_X.size());
 	iota(trimInfo.begin(), trimInfo.end(), 0);
 	trimBreakpoints(bps_X, trimInfo);
-	trimClusters(bps_X, trimInfo, dense_clusts, sparse_clusts, 1);
-	if (fopts.debug) {
-		ofstream fclust("trimlines_X.bed");
-	  	for (auto& it : bps_X)
-	    	fclust << it << endl;
-		fclust.close();			
-	}	
+	trimClusters(readname, bps_X, trimInfo, dense_clusts, sparse_clusts, 1);
+	cerr << " get all the breakpoints on y, x-axis!" << endl;
+
+	// if (fopts.debug) {
+	// 	ofstream fclust("trimlines_X.bed");
+	//   	for (auto& it : bps_X)
+	//     	fclust << it << endl;
+	// 	fclust.close();			
+	// }	
 
 }
 
