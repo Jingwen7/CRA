@@ -55,20 +55,107 @@ int main(int argc, char *argv[])
 
 	// find small & dense hits for each sample
 	uint32_t i, j;
-	vector<sample> samples(genome.getSize());
+	uint32_t n = genome.getSize();
 
-	for (i = 0; i < genome.getSize(); ++i) {
+	// Get the breakpoints for each sample
+	vector<sample> samples(genome.getSize());
+	for (i = 0; i < n; ++i) {
 		cerr << "process sample: " << *genome.getName(i) << " " << i << endl;
 		samples[i].init(i, genome.getName(i));
-		samples[i].process (i, i, mi_s, mi_l, fopts, siopt, liopt, 1);
+		samples[i].process (samples, i, i, mi_s, mi_l, fopts, siopt, liopt, 1);
 		samples[i].dump(genome.getName(i), fopts);
 	}
 
-	// find large hits for a pair of sample
-	for (i = 0; i < genome.getSize(); ++i) {
-		// for each fragment in sample i, find the corresponding fragment in sample j; 
-		// unify them if a full cluster present; fragment them if a half cluster present;
+	// get the clusters for across-sample 
+	vector<vector<acrosample>> acrosamples(n);
+	for (i = 0; i < n; ++i) {
+		acrosamples[i].resize(n - i);
+		for (j = i + 1; j < n; ++j) {
+			acrosamples[i][j - i - 1].init(i, j, &samples[i], &samples[j]);
+			acrosamples[i][j - i - 1].across_process(samples, i, j, mi_s, mi_l, fopts, siopt, liopt, 0);
+			acrosamples[i][j - i - 1].decideStrand();
+			// if (fopts.debug)
+			// 	acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));
+		}
 	}	
+
+	// unify the breakpoints
+	for (i = 0; i < n; ++i) {
+		vector<uint32_t> bps_i, bps_j, bps_i_single;
+		set<uint32_t> bpset_i, bpset_j;
+	    uint32_t k, l;
+	    for (k = 0; k < samples[i].breakpoints.size(); ++k) {
+	    	bpset_i.insert(samples[i].breakpoints[k]);
+	    }
+
+		// project samples[j]'s breakpoint to sample[i]
+		// bpset_i will contain all the breakpoints
+		// cluster bpset_i 
+		// project back to other samples
+		bps_i.clear();
+		for (j = 0; j < n; ++j) {
+			if (i == j) continue;
+			if (j > i) {
+				bpset_j.clear();
+				bps_j.clear();
+			    for (k = 0; k < samples[j].breakpoints.size(); ++k) {
+			    	bpset_j.insert(samples[j].breakpoints[k]);
+			    }
+				// step 1: trim the y-axis (sample[j])
+				firstTrim(samples[j], bpset_j, acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, bps_j, fopts, 0, 1);
+
+				// step 2: project breakpoints from sample[j] to sample[i]
+				secondTrim (samples[i], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, bps_j, bps_i_single, fopts, 0, 1);
+
+				if (fopts.debug)
+					acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));				
+			}
+			else { // j < i
+				bpset_j.clear();
+				bps_j.clear();	
+			    for (k = 0; k < samples[j].breakpoints.size(); ++k) {
+			    	bpset_j.insert(samples[j].breakpoints[k]);
+			    }			
+			    // step 1: trim the x-axis (sample[j])
+				firstTrim(samples[j], bpset_j, acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, bps_j, fopts, 1, 1);
+
+				// step 2: project breakpoints from sample[j] to sample[i]
+				secondTrim (samples[i], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, bps_j, bps_i_single, fopts, 1, 1);
+			}
+
+			for (k = 0; k < bps_i_single.size(); ++k) {
+				bps_i.push_back(bps_i_single[k]);
+				bpset_i.insert(bps_i_single[k]);
+			}
+		}
+
+		// cluster breakpoints in bpset_i
+		// trim dense_clusts, sparse_clusts in across-sample dotplot
+		vector<uint32_t> trimInfo(bps_i.size());
+		sort(bps_i.begin(), bps_i.end());
+		iota(trimInfo.begin(), trimInfo.end(), 0);
+		clusterBreakpoints(bps_i, trimInfo, fopts);
+		vector<bool> remove(bps_i.size(), 0);
+
+		for (j = 0; j < n; ++j) {
+			if (i == j) continue;
+			if (j > i) 
+				trimClusters_nomodifybreakpoints(samples[i], bps_i, trimInfo, acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, remove, 1, 1);
+			else 
+				trimClusters_nomodifybreakpoints(samples[i], bps_i, trimInfo, acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, remove, 0, 1);
+		}
+		REsize(bps_i, remove);
+
+		if (fopts.debug) {
+			ofstream fclust("trimlines_unify.bed", ios_base::app);
+		  	for (auto& it : bps_i)
+		    	fclust << it << "\t" << *(samples[i].readname) << endl;
+			fclust.close();					
+		}
+
+
+
+	}
 	return 0;
 	
 

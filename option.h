@@ -26,7 +26,7 @@ public:
 	fragopt_t () 
 	{
 		CleanMaxDiag = 100;
-		DiagMinCluster = 100;
+		DiagMinCluster = 500;
 		clusterMaxDiag = 20;
 		clusterMaxDist = 800;
 		clusterMinLength = 1000;

@@ -44,14 +44,13 @@ bool hitAntiCartesianSort (const hit &a, const hit &b)
 		return a.y > b.y;
 }
 
-inline void find_match (vector<hit> &hits, const uint256_t &mi, const vector<uint32_t> &pos, const kmerhash &khash, bool acrossStrand)
+inline void find_match (vector<hit> &hits, const uint256_t &mi, const vector<uint32_t> &pos, const kmerhash &khash, bool self)
 {
 	uint32_t i, j;
 	hit temp;
-	if (!acrossStrand) { // only half of the self-self alignment
+	if (self) { // only half of the self-self alignment
 		for (i = 0; i < pos.size(); ++i) {
 			for (j = i + 1; j < pos.size(); ++j) {
-				// cerr << "i: " << i << " j: " << j << endl;
 				temp.mi = (mi & fmask); 
 				temp.x = pos[i]; 
 				temp.y = pos[j];
@@ -64,12 +63,45 @@ inline void find_match (vector<hit> &hits, const uint256_t &mi, const vector<uin
 		if (ot != khash.end()) {
 			for (i = 0; i < ot->second.size(); ++i) {
 				for (j = 0; j < pos.size(); ++j) {
-					if (pos[j] < (ot->second)[i]){
+					temp.mi = (mi & fmask); 
+					temp.x = pos[j]; 
+					temp.y = (ot->second)[i];
+					hits.push_back(temp);	
+				}
+			}
+		}		
+	}
+}
+
+inline void find_match_boundary_checking (const sample &sample_i, const sample &sample_j, vector<hit> &hits, const uint256_t &mi, const vector<uint32_t> &pos, const kmerhash &khash, bool self)
+{
+	uint32_t i, j;
+	hit temp;
+	if (self) { // only half of the self-self alignment
+		for (i = 0; i < pos.size(); ++i) {
+			for (j = i + 1; j < pos.size(); ++j) {
+				if (pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back()
+					and pos[j] >= sample_j.breakpoints[0] and pos[j] <= sample_j.breakpoints.back()) {
+					temp.mi = (mi & fmask); 
+					temp.x = pos[i]; 
+					temp.y = pos[j];
+					hits.push_back(temp);
+				}
+			}
+		}
+	}
+	else {
+		auto ot = khash.find(mi);
+		if (ot != khash.end()) {
+			for (i = 0; i < ot->second.size(); ++i) {
+				for (j = 0; j < pos.size(); ++j) {
+					if (pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back()
+					and (ot->second)[i] >= sample_j.breakpoints[0] and (ot->second)[i] <= sample_j.breakpoints.back()) {
 						temp.mi = (mi & fmask); 
 						temp.x = pos[j]; 
 						temp.y = (ot->second)[i];
 						hits.push_back(temp);	
-					}			
+					}
 				}
 			}
 		}		
@@ -83,52 +115,46 @@ void checkForwardmatch (const Genome *genome, uint32_t a, uint32_t b, uint32_t a
 	}
 }
 
-void rf_hit(const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fhits, vector<hit> &rhits, const fragopt_t &fopts, const idxopt_t &iopt, bool self=1) 
+void rf_hit(const vector<sample> & samples, const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fhits, vector<hit> &rhits, const fragopt_t &fopts, const idxopt_t &iopt, bool self = 1) 
 {
-	cerr << "mi.seqh[a].size(): " <<  mi.seqh[a]->size() << endl;
-	// uint32_t count = 0;
+	// cerr << "mi.seqh[a].size(): " <<  mi.seqh[a]->size() << endl;
+	uint256_t f, r; bool z;
 	for (auto it = mi.seqh[a]->begin(); it != mi.seqh[a]->end(); ++it) {
 		// minimizer: it->first;
 		// vector<pos>: it->second; 
-		// cerr << "minimizer: " << it->first << endl;
-		// count++;
-		uint256_t z, f, r;
-		// uint256_t rmask, fmask, 
-		// rmask = (uint256_t) 1; // 00000...1
-		// fmask = (((uint256_t)1 << 255) - 1) << 1; // 111...1110
-		z = ((rmask & it->first) == 1) ? 1 : 0; // direction
-		f = (it->first & fmask);
-		r = (it->first | rmask);
-		// cerr << "it->second.size(): " << it->second.size() << endl;
 		if (it->second.size() < fopts.freq) {
-			if (z ^ 0 == 0) {// z = 0: forward 
-				// cerr << "forward" << endl;
-				find_match(fhits, f, it->second, *mi.seqh[b], 0);
+			z = ((rmask & it->first) == 1) ? 1 : 0; // direction
+			f = (it->first & fmask);
+			r = (it->first | rmask);
+			if (self) { // self-self only has forward matches
+				if ((z ^ 0) == 0) // z = 0: forward 
+					find_match(fhits, f, it->second, *mi.seqh[b], self);
+				else if ((z ^ 1) == 0) // z = 1: forward
+					find_match(fhits, r, it->second, *mi.seqh[b], self);
 			}
-			else if (z ^ 1 == 0) {// z = 1: forward
-				// cerr << "forward" << endl;			
-				find_match(fhits, r, it->second, *mi.seqh[b], 0);
-			}	
-			else if (z ^ 1 == 1) {// z = 0: reverse
-				// cerr << "reverse" << endl;
-				find_match(rhits, r, it->second, *mi.seqh[b], 1);
+			else { // sample i to sample j matches
+				if ((z ^ 0) == 0) // z = 0: forward 
+					find_match_boundary_checking(samples[a], samples[b], fhits, f, it->second, *mi.seqh[b], self);
+				if ((z ^ 1) == 0) // z = 1: forward
+					find_match_boundary_checking(samples[a], samples[b], fhits, r, it->second, *mi.seqh[b], self);
+				if ((z ^ 1) == 1) // z = 0: reverse matches
+					find_match_boundary_checking(samples[a], samples[b], rhits, r, it->second, *mi.seqh[b], self);
+				if ((z ^ 0) == 1) // z = 1: reverse matches
+					find_match_boundary_checking(samples[a], samples[b], rhits, f, it->second, *mi.seqh[b], self);
 			}
-			else if (z ^ 0 == 1) {// reverse
-				// cerr << "reverse" << endl;
-				find_match(rhits, f, it->second, *mi.seqh[b], 1);
-			}			
+			
 		}
 	}
-	if (fopts.debug) {
-		ofstream fclust("hits.bed");
+	if (fopts.debug and !self) {
+		ofstream fclust("hit.bed", ios::app);
 		cerr << "forward hits: " << fhits.size() << endl;
 		for (uint32_t m = 0; m < fhits.size(); ++m) {
 			// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
-			fclust << fhits[m].x << "\t" << fhits[m].y << "\t" << fhits[m].x + iopt.k << "\t" << fhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "0" << "\t0" << endl;
+			fclust << fhits[m].x << "\t" << fhits[m].y << "\t" << fhits[m].x + iopt.k << "\t" << fhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "0" << endl;
 		}
 		cerr << "reverse hits: " << rhits.size() << endl;
 		for (uint32_t m = 0; m < rhits.size(); ++m) {
-			fclust << rhits[m].x << "\t" << rhits[m].y << "\t" << rhits[m].x + iopt.k << "\t" << rhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "1" << "\t" << endl;
+			fclust << rhits[m].x << "\t" << rhits[m].y << "\t" << rhits[m].x + iopt.k << "\t" << rhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "1" << endl;
 		}
 		fclust.close();			
 	}
@@ -137,7 +163,7 @@ void rf_hit(const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fh
 void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clust, bool st, const idxopt_t &iopt, const fragopt_t &fopts) 
 {
 	sort(hits.begin() + s, hits.begin() + e, hitCartesianSort);
-	int initial = clust.size();
+	uint32_t initial = clust.size();
 	uint32_t cs = s, ce = s;
 	while (cs < e) {
 		ce = cs + 1;
@@ -160,16 +186,17 @@ void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clus
 		cs = ce;
 	}	
 
-	if (fopts.debug) {
-		ofstream rclust("diagcluster.bed", ios_base::app);
-		for (int m = initial; m < clust.size(); m++) {
-			for (int c = clust[m].s; c < clust[m].e; ++c) {
-				rclust << hits[c].x << "\t" << hits[c].y << "\t" << hits[c].x + iopt.k << "\t"
-					   << hits[c].y + iopt.k << "\t" << iopt.k << "\t"  << clust[m].strand  << "\t" << m << endl;				
-			}
-		}
-		rclust.close();		
-	}
+	// if (fopts.debug) {
+	// 	ofstream rclust("diagcluster.bed", ios_base::app);
+	// 	uint32_t m;
+	// 	for (m = initial; m < clust.size(); m++) {
+	// 		for (int c = clust[m].s; c < clust[m].e; ++c) {
+	// 			rclust << hits[c].x << "\t" << hits[c].y << "\t" << hits[c].x + iopt.k << "\t"
+	// 				   << hits[c].y + iopt.k << "\t" << iopt.k << "\t"  << clust[m].strand  << "\t" << m << endl;				
+	// 		}
+	// 	}
+	// 	rclust.close();		
+	// }
 }
 
 void cleanDiag(vector<hit> &hits, clusters &clust, const fragopt_t &fopts, const idxopt_t &iopt, bool st)
@@ -272,14 +299,14 @@ void cleanDiag(vector<hit> &hits, clusters &clust, const fragopt_t &fopts, const
 	hits.resize(c);
 	counts.resize(c);
 
-	if (fopts.debug) {
-		ofstream fclust("cleanmatches.bed", ios_base::app);
-		for (uint32_t m = 0; m < hits.size(); ++m) {
-			// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
-			fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t" << counts[m] << endl;
-		}
-		fclust.close();			
-	}
+	// if (fopts.debug) {
+	// 	ofstream fclust("cleanmatches.bed", ios_base::app);
+	// 	for (uint32_t m = 0; m < hits.size(); ++m) {
+	// 		// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
+	// 		fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t" << counts[m] << endl;
+	// 	}
+	// 	fclust.close();			
+	// }
 
 	//
 	// Store diagonal in clusters
