@@ -13,6 +13,7 @@ public:
 	uint32_t cidx; //??
 	uint32_t diag;
 
+	cluster () {};
 	cluster (uint32_t XStart, uint32_t XEnd, uint32_t YStart, uint32_t YEnd, bool st) :
 	xStart(XStart), xEnd(XEnd), yStart(YStart), yEnd(YEnd), strand(st) {
 		if ((xEnd - xStart) == (yEnd - yStart)) diag = 0;

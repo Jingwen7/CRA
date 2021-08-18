@@ -21,6 +21,7 @@ public:
 	uint32_t code;
 	bool debug;
 	int freq;
+	double ovpfrac;
 
 
 	fragopt_t () 
@@ -39,6 +40,7 @@ public:
 		code = 0;
 		debug = true;
 		freq = 50;
+		ovpfrac = 0.6;
 	};
 
 	

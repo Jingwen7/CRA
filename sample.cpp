@@ -77,6 +77,103 @@ void sample::dump (string * readname, const fragopt_t &fopts)
 	}
 }
 
+void sample::substractClusters ()
+{
+	int size = dense_clusts.size();
+	dense_clusts.resize( size / 2);
+	size = sparse_clusts.size();
+	sparse_clusts.resize(size / 2);
+}
+
+void sample::clusterBreakpoints (const fragopt_t &fopts, graph &superGraph)
+{
+	vector<uint32_t> trimInfo(breakpoints.size());
+	iota(trimInfo.begin(), trimInfo.end(), 0);
+	vector<uint32_t> clusterPivots;
+
+	uint32_t prev = breakpoints.back();
+	int i = breakpoints.size() - 2; 
+	while (i >= 0) {
+		if (breakpoints[i] + fopts.clusterTrimedge >= prev)
+			trimInfo[i] = trimInfo[i + 1];
+		else
+			trimInfo[i] = i;
+		prev = breakpoints[i];
+		i--;
+	}
+
+	for (i = 0; i < trimInfo.size(); ++i) {
+		if (trimInfo[i] == i)
+			clusterPivots.push_back(breakpoints[i]);
+	}
+
+	breakpoints = clusterPivots; // update breakpoints to cleaner version
+
+	// insert intervals to graph
+	uint32_t o = superGraph.intvs.size();
+	for (i = 1; i < clusterPivots.size(); ++i) 
+		superGraph.intvs.push_back(interval(clusterPivots[i - 1], clusterPivots[i], idx));
+
+	s = o;
+	e = superGraph.intvs.size();
+
+	// o = superGraph.adlist_dense.size();
+	// superGraph.adlist_dense.resize(o + clusterPivots.size());
+
+	// o = superGraph.adlist_sparse.size();
+	// superGraph.adlist_sparse.resize(o + clusterPivots.size());
+}
+
+bool overlap (uint32_t b_s, uint32_t b_e, uint32_t a_s, uint32_t a_e, double frac)
+{
+		uint32_t ovp = 0;
+
+		if (b_s >= a_s and b_s < a_e) {
+			ovp = min(a_e, b_e) - b_s;
+		}
+		else if (b_e > a_s and b_e < a_e) {
+			ovp = b_e - max(a_s, b_s);
+		}
+		else if (b_s <= a_s and b_e > a_e) {
+			ovp = a_e - a_s;
+		}
+		double denomA = (double) (a_e - a_s);
+		double denomB = (double) (b_e - b_s);
+		if ( max(ovp / denomA, ovp / denomB) >= frac) 
+			return true;
+		else 
+			return false;
+}
+
+void addEdge(const fragopt_t &fopts, const vector<cluster> &clusts, vector<uint32_t> &breakpoints, vector<vector<uint32_t>> &adlist, uint32_t s)
+{
+	uint32_t i;
+	vector<uint32_t> xhits, yhits;
+
+	for (auto&it : clusts) {
+		xhits.clear();
+		yhits.clear();
+		for (i = 1; i < breakpoints.size(); ++i) {
+			if (overlap(breakpoints[i - 1], breakpoints[i], it.xStart, it.xEnd, fopts.ovpfrac))
+				xhits.push_back(i - 1);
+			if (overlap(breakpoints[i - 1], breakpoints[i], it.yStart, it.yEnd, fopts.ovpfrac))
+				yhits.push_back(i - 1);
+		}
+		assert(xhits.size() == yhits.size());
+
+		for (i = 0; i < xhits.size(); ++i) {
+			adlist[xhits[i] + s].push_back(yhits[i] + s);
+			adlist[yhits[i] + s].push_back(xhits[i] + s);
+		}
+	}
+}
+
+void sample::unifyIntv(const fragopt_t &fopts, graph &superGraph)
+{
+	addEdge(fopts, dense_clusts, breakpoints, superGraph.adlist_dense, s);
+	addEdge(fopts, sparse_clusts, breakpoints, superGraph.adlist_sparse, s);
+}
+
 void acrosample::init (uint32_t idx, uint32_t jdx, sample * Pi, sample * Pj)
 {
 	i = idx;
@@ -171,7 +268,50 @@ void acrosample::dump (string * readname_i, string * readname_j, const fragopt_t
 	}
 }
 
+void addEdge_acros (const fragopt_t &fopts, const vector<cluster> &clusts, sample *pi, sample *pj, vector<vector<uint32_t>> &adlist, bool strand)
+{
+	uint32_t c;
+	uint32_t t;
+	vector<uint32_t> xhits, yhits;
+	
+	for (auto&it : clusts) {
+		xhits.clear();
+		yhits.clear();
+		for (c = 1; c < pi->breakpoints.size(); ++c) {
+			if (overlap(pi->breakpoints[c - 1], pi->breakpoints[c], it.xStart, it.xEnd, fopts.ovpfrac))
+				xhits.push_back(c - 1);
+		}
 
+		for (c = 1; c < pj->breakpoints.size(); ++c) {
+			if (overlap(pj->breakpoints[c - 1], pj->breakpoints[c], it.yStart, it.yEnd, fopts.ovpfrac))
+				yhits.push_back(c - 1);
+		}
+
+		assert(xhits.size() == yhits.size());
+
+		if (strand == 0) {
+			for (c = 0; c < xhits.size(); ++c) {
+				adlist[xhits[c] + pi->s].push_back(yhits[c] + pj->s);
+				adlist[yhits[c] + pj->s].push_back(xhits[c] + pi->s);
+			}
+		}
+		else {
+			for (c = 0; c < xhits.size(); ++c) {
+				t = xhits.size() - 1 - c;
+				adlist[xhits[c] + pi->s].push_back(yhits[t] + pj->s);
+				adlist[yhits[t] + pj->s].push_back(xhits[c] + pi->s);
+			}			
+		}
+	}	
+}
+
+void acrosample::unifyIntv(const fragopt_t &fopts, graph &superGraph)
+{
+	cerr << "dense" << endl;
+	addEdge_acros(fopts, dense_clusts, pi, pj, superGraph.adlist_dense, strand);
+	cerr << "sparse" << endl;
+	addEdge_acros(fopts, sparse_clusts, pi, pj, superGraph.adlist_sparse, strand);
+}
 
 
 

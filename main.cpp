@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 		// project back to other samples
 		bps_i.clear();
 		for (j = 0; j < n; ++j) {
+			bps_i_single.clear();
 			if (i == j) continue;
 			if (j > i) {
 				bpset_j.clear();
@@ -103,12 +104,15 @@ int main(int argc, char *argv[])
 			    }
 				// step 1: trim the y-axis (sample[j])
 				firstTrim(samples[j], bpset_j, acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, bps_j, fopts, 0, 1);
+				samples[j].breakpoints = bps_j;
+
+				if (fopts.debug) {
+					checkBreakpoints_Clusters(bps_j, acrosamples[i][j - i - 1].dense_clusts, 0);
+					checkBreakpoints_Clusters(bps_j, acrosamples[i][j - i - 1].sparse_clusts, 0);
+				}
 
 				// step 2: project breakpoints from sample[j] to sample[i]
 				secondTrim (samples[i], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, bps_j, bps_i_single, fopts, 0, 1);
-
-				if (fopts.debug)
-					acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));				
 			}
 			else { // j < i
 				bpset_j.clear();
@@ -118,6 +122,7 @@ int main(int argc, char *argv[])
 			    }			
 			    // step 1: trim the x-axis (sample[j])
 				firstTrim(samples[j], bpset_j, acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, bps_j, fopts, 1, 1);
+				samples[j].breakpoints = bps_j;
 
 				// step 2: project breakpoints from sample[j] to sample[i]
 				secondTrim (samples[i], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, bps_j, bps_i_single, fopts, 1, 1);
@@ -126,6 +131,30 @@ int main(int argc, char *argv[])
 			for (k = 0; k < bps_i_single.size(); ++k) {
 				bps_i.push_back(bps_i_single[k]);
 				bpset_i.insert(bps_i_single[k]);
+			}
+
+			if (j > i) {
+				insertPoint (acrosamples[i][j - i - 1].dense_clusts, bpset_i, 0);
+				insertPoint (acrosamples[i][j - i - 1].sparse_clusts, bpset_i, 0);
+				insertPoint (acrosamples[i][j - i - 1].dense_clusts, bps_i, 0);
+				insertPoint (acrosamples[i][j - i - 1].sparse_clusts, bps_i, 0);
+			}
+			else {
+				insertPoint (acrosamples[j][i - j - 1].dense_clusts, bpset_i, 1);
+				insertPoint (acrosamples[j][i - j - 1].sparse_clusts, bpset_i, 1);
+				insertPoint (acrosamples[j][i - j - 1].dense_clusts, bps_i, 1);
+				insertPoint (acrosamples[j][i - j - 1].sparse_clusts, bps_i, 1);	
+			}
+				
+			if (fopts.debug) {
+				if (j > i) { // samples[i] is x-axis
+					checkBreakpoints_Clusters(bpset_i, acrosamples[i][j - i - 1].dense_clusts, 1);
+					checkBreakpoints_Clusters(bpset_i, acrosamples[i][j - i - 1].sparse_clusts, 1);
+				} 
+				else {  // samples[j] is y-axis
+					checkBreakpoints_Clusters(bpset_i, acrosamples[j][i - j - 1].dense_clusts, 0);
+					checkBreakpoints_Clusters(bpset_i, acrosamples[j][i - j - 1].sparse_clusts, 0);					
+				}
 			}
 		}
 
@@ -139,18 +168,63 @@ int main(int argc, char *argv[])
 
 		for (j = 0; j < n; ++j) {
 			if (i == j) continue;
-			if (j > i) 
+			if (j > i) {
 				trimClusters_nomodifybreakpoints(samples[i], bps_i, trimInfo, acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, remove, 1, 1);
-			else 
+			}
+			else { 
 				trimClusters_nomodifybreakpoints(samples[i], bps_i, trimInfo, acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, remove, 0, 1);
+			}
 		}
 		REsize(bps_i, remove);
+		samples[i].breakpoints = bps_i;
+
+		if (fopts.debug) {
+			for (j = 0; j < n; ++j) {
+				if (i == j) continue;
+				if (j > i) {
+					checkBreakpoints_Clusters(bps_i, acrosamples[i][j - i - 1].dense_clusts, 1);
+					checkBreakpoints_Clusters(bps_i, acrosamples[i][j - i - 1].sparse_clusts, 1);					
+				}
+				else {
+					checkBreakpoints_Clusters(bps_i, acrosamples[j][i - j - 1].dense_clusts, 0);
+					checkBreakpoints_Clusters(bps_i, acrosamples[j][i - j - 1].sparse_clusts, 0);					
+				}
+			}
+		}
 
 		if (fopts.debug) {
 			ofstream fclust("trimlines_unify.bed", ios_base::app);
 		  	for (auto& it : bps_i)
 		    	fclust << it << "\t" << *(samples[i].readname) << endl;
 			fclust.close();					
+		}
+
+		// project samples[i]'s breakpoints to all other samples
+		vector<uint32_t> bps_j_proj;
+		for (j = 0; j < n; ++j) {
+			bps_j.clear();
+			if (i == j) continue;
+			bps_j_proj = samples[j].breakpoints;
+			if (j > i) { // samples[j] is y-axis
+				insertPoint (acrosamples[i][j - i - 1].dense_clusts, bps_j, 1);
+				insertPoint (acrosamples[i][j - i - 1].sparse_clusts, bps_j, 1);
+			}
+			else { // samples[j] is x-axis
+				insertPoint (acrosamples[j][i - j - 1].dense_clusts, bps_j, 0);
+				insertPoint (acrosamples[j][i - j - 1].sparse_clusts, bps_j, 0);
+			}			
+
+			if (j > i) 
+				secondTrim (samples[j], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, bps_i, bps_j_proj, fopts, 1, 1);
+			else 
+				secondTrim (samples[j], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, bps_i, bps_j_proj, fopts, 0, 1);
+
+
+		    // cluster breakpoings around cluster's boundaries
+			// bpset_j: cluster's boundaries
+			// bpset_j_proj : projected breakpoints from samples[i] + samples[j].breakpoints: samples[j]'s original breakpoints
+			updateBreakpointsBasedOnPivot(samples[j].breakpoints, bps_j, bps_j_proj, fopts);
+			cerr << "finish!" << endl;
 		}
 
 

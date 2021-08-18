@@ -3,15 +3,18 @@
 
 #include "cluster.h"
 #include "index.h"
+#include "graph.h"
 
 class sample 
 {
 public:
 	vector<cluster> dense_clusts;
 	vector<cluster> sparse_clusts;
-	vector<uint32_t> breakpoints;
+	vector<uint32_t> breakpoints; // TODO(Jingwen) change vector to set
 	string *readname;
 	uint32_t idx;
+	uint32_t s;
+	uint32_t e; // s, e are referring to the positions in superGraph.intvs
 
 	sample () {};
 	~sample () {};
@@ -22,6 +25,12 @@ public:
 		const fragopt_t &fopts, const idxopt_t &siopt, const idxopt_t &liopt, bool self);
 
 	void dump (string * readname, const fragopt_t &fopts);
+
+	void clusterBreakpoints (const fragopt_t &fopts, graph &superGraph);
+
+	void substractClusters ();
+	
+	void unifyIntv(const fragopt_t &fopts, graph &superGraph);
 };
 
 
@@ -48,6 +57,9 @@ public:
 	void decideStrand ();
 
 	void dump (string * readname_i, string * readname_j, const fragopt_t &fopts, uint32_t len);		
+
+	void unifyIntv(const fragopt_t &fopts, graph &superGraph);
+
 };
 
 

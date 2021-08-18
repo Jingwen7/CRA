@@ -6,8 +6,17 @@
 #include "cluster.h"
 #include "sample.h"
 
+void checkBreakpoints_Clusters (vector<uint32_t> &bps, vector<cluster> &clusts, bool axis);
+
+void checkBreakpoints_Clusters (set<uint32_t> &s, vector<cluster> &clusts, bool axis);
+
+void insertPoint (vector<cluster> &clusts, set<uint32_t> &s, bool axis);
+
+void insertPoint (vector<cluster> &clusts, vector<uint32_t> &s, bool axis);
+
 template<typename T>
 void REsize(vector<T> &original, const vector<bool> &remove);
+
 
 void clusterBreakpoints (const vector<uint32_t> &bps, vector<uint32_t> &trimInfo, const fragopt_t &fopts);
 
@@ -33,5 +42,9 @@ meanwhile make necessary trimming to the clusters;
 */
 void secondTrim (sample &a, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vector<uint32_t> &bps_first, 
 				vector<uint32_t> &bps_second, const fragopt_t &fopts, bool axis, bool unifysample);
+
+void updateBreakpointsBasedOnPivot(sample &a, vector<uint32_t> &pivot, vector<uint32_t> &edge, const fragopt_t &fopts);
+
+void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, const fragopt_t &fopts, bool axis);
 
 #endif
