@@ -5,6 +5,7 @@
 #include "cluster.h"
 #include "breakpoint.h"
 #include "sample.h"
+#include "unionfind.h"
 
 void sample::init (uint32_t i, string *rn)
 {
@@ -91,8 +92,11 @@ void sample::clusterBreakpoints (const fragopt_t &fopts, graph &superGraph)
 	iota(trimInfo.begin(), trimInfo.end(), 0);
 	vector<uint32_t> clusterPivots;
 
-	uint32_t prev = breakpoints.back();
-	int i = breakpoints.size() - 2; 
+	int i;
+	uint32_t prev;
+	// if (relative_strand == 0) {
+	prev = breakpoints.back();
+	i = breakpoints.size() - 2; 
 	while (i >= 0) {
 		if (breakpoints[i] + fopts.clusterTrimedge >= prev)
 			trimInfo[i] = trimInfo[i + 1];
@@ -101,6 +105,19 @@ void sample::clusterBreakpoints (const fragopt_t &fopts, graph &superGraph)
 		prev = breakpoints[i];
 		i--;
 	}
+	// }
+	// else {
+	// 	prev = breakpoints[0];
+	// 	i = 1; 
+	// 	while (i < breakpoints.size()) {
+	// 		if (breakpoints[i] <= prev + fopts.clusterTrimedge)
+	// 			trimInfo[i] = trimInfo[i + 1];
+	// 		else
+	// 			trimInfo[i] = i;
+	// 		prev = breakpoints[i];
+	// 		i++;
+	// 	}		
+	// }
 
 	for (i = 0; i < trimInfo.size(); ++i) {
 		if (trimInfo[i] == i)
@@ -268,11 +285,12 @@ void acrosample::dump (string * readname_i, string * readname_j, const fragopt_t
 	}
 }
 
-void addEdge_acros (const fragopt_t &fopts, const vector<cluster> &clusts, sample *pi, sample *pj, vector<vector<uint32_t>> &adlist, bool strand)
+void addEdge_acros (UF *uf, const fragopt_t &fopts, const vector<cluster> &clusts, sample *pi, sample *pj, vector<vector<uint32_t>> &adlist)
 {
 	uint32_t c;
 	uint32_t t;
 	vector<uint32_t> xhits, yhits;
+	uint32_t m, n;
 	
 	for (auto&it : clusts) {
 		xhits.clear();
@@ -289,17 +307,22 @@ void addEdge_acros (const fragopt_t &fopts, const vector<cluster> &clusts, sampl
 
 		assert(xhits.size() == yhits.size());
 
-		if (strand == 0) {
+		if (it.strand == 0) {
 			for (c = 0; c < xhits.size(); ++c) {
-				adlist[xhits[c] + pi->s].push_back(yhits[c] + pj->s);
-				adlist[yhits[c] + pj->s].push_back(xhits[c] + pi->s);
+				m = xhits[c] + pi->s;
+				n = yhits[c] + pj->s;
+				adlist[m].push_back(n);
+				adlist[n].push_back(m);
+				// uf->merge(m + 2, n + 2); // same strand
 			}
 		}
 		else {
 			for (c = 0; c < xhits.size(); ++c) {
 				t = xhits.size() - 1 - c;
-				adlist[xhits[c] + pi->s].push_back(yhits[t] + pj->s);
-				adlist[yhits[t] + pj->s].push_back(xhits[c] + pi->s);
+				m = xhits[c] + pi->s;
+				n = yhits[t] + pj->s;
+				adlist[m].push_back(n);
+				adlist[n].push_back(m);
 			}			
 		}
 	}	
@@ -307,13 +330,73 @@ void addEdge_acros (const fragopt_t &fopts, const vector<cluster> &clusts, sampl
 
 void acrosample::unifyIntv(const fragopt_t &fopts, graph &superGraph)
 {
-	cerr << "dense" << endl;
-	addEdge_acros(fopts, dense_clusts, pi, pj, superGraph.adlist_dense, strand);
-	cerr << "sparse" << endl;
-	addEdge_acros(fopts, sparse_clusts, pi, pj, superGraph.adlist_sparse, strand);
+	addEdge_acros(superGraph.uf, fopts, dense_clusts, pi, pj, superGraph.adlist_dense);
+	addEdge_acros(superGraph.uf, fopts, sparse_clusts, pi, pj, superGraph.adlist_sparse);
 }
 
+void dumpGraph (vector<sample> &samples, graph &superGraph, const fragopt_t &fopts)
+{
+	if (!fopts.debug) return;
+	uint32_t i, k;
+	ofstream fclust("dense_assignment.bed", ios_base::app);
+	for (i = 0; i < samples.size(); ++i) {
+		fclust << *(samples[i].readname) << ": "; 
+		for (k = samples[i].s; k < samples[i].e; ++k) {
+			if (k != samples[i].e - 1)
+				fclust << superGraph.colors_dense[k] << ", ";
+			else 
+				fclust << superGraph.colors_dense[k] << endl;			
+		}
+	}
+	fclust.close();		
 
+	ofstream hclust("sparse_assignment.bed", ios_base::app);
+	for (i = 0; i < samples.size(); ++i) {
+		hclust << *(samples[i].readname) << ": "; 
+		for (k = samples[i].s; k < samples[i].e; ++k) {
+			if (k != samples[i].e - 1)
+				hclust << superGraph.colors_sparse[k] << ", ";
+			else 
+				hclust << superGraph.colors_sparse[k] << endl;			
+		}
+	}
+	hclust.close();	
+
+	ofstream kclust("assignment.bed", ios_base::app);
+	for (i = 0; i < samples.size(); ++i) {
+		kclust << *(samples[i].readname) << ": "; 
+		for (k = samples[i].s; k < samples[i].e; ++k) {
+			if (k != samples[i].e - 1) {
+				if (superGraph.colors_sparse[k] != 0)
+					kclust << superGraph.colors_sparse[k] << ", ";
+				else
+					kclust << superGraph.colors_dense[k] << ", ";
+			}
+			else {
+				if (superGraph.colors_sparse[k] != 0)
+					kclust << superGraph.colors_sparse[k] << endl;
+				else
+					kclust << superGraph.colors_dense[k] << endl;
+			}
+		}
+	}
+	kclust.close();	
+
+	ofstream lclust("lens.bed", ios_base::app);
+	for (i = 0; i < samples.size(); ++i) {
+		lclust << *(samples[i].readname) << ": "; 
+		for (k = samples[i].s; k < samples[i].e; ++k) {
+			if (k != samples[i].e - 1) {
+				lclust << superGraph.lens[k] << ", ";
+
+			}
+			else {
+				lclust << superGraph.lens[k] << endl;
+			}
+		}
+	}
+	lclust.close();			
+}
 
 
 

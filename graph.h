@@ -5,6 +5,7 @@
 #include <vector>
 #include <set>
 #include <iostream>
+#include "unionfind.h"
 
 using std::vector;
 using std::set;
@@ -31,8 +32,14 @@ public:
 	vector<vector<uint32_t>> adlist_sparse;
 	vector<uint32_t> colors_dense;
 	vector<uint32_t> colors_sparse;
+	vector<uint32_t> lens;
+	UF * uf;
+	uint32_t nofComs;
+
 	graph () {};
-	~graph () {};
+	~graph () {
+		delete uf;
+	};
 
 	void init ();
 	void findConnetedComponents ();

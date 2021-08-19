@@ -103,12 +103,12 @@ void idx_t::idx_sort (const fragopt_t &fopts)
 				if (i < idxv.size()) sort(idxv.begin() + s, idxv.begin() + i, sufsorter);
 				else sort(idxv.begin() + s, idxv.end(), sufsorter);
 
-				// debug
-				if (fopts.debug) {
-					for (uint32_t m = s; m < i; ++m) {
-						fclust << idxv[m].x << "\t" << idxv[m].y << endl;
-					}					
-				}
+				// // debug
+				// if (fopts.debug) {
+				// 	for (uint32_t m = s; m < i; ++m) {
+				// 		fclust << idxv[m].x << "\t" << idxv[m].y << endl;
+				// 	}					
+				// }
 			}
 			else sgnkmer++;
 			for (int j = s; j < i; j++) {

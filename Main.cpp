@@ -92,36 +92,71 @@ int main(int argc, char *argv[])
 				project(samples[j], samples[i], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 1);
 			}
 		}
-		for (j = 0; j < n; ++j) {
-			// project samples[j] to samples[i]
-			if (i == j) continue;
-			if (j < i) { // samples[j] is y-axis
-				project(samples[i], samples[j], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 0);
-			}
-			else { // samples[j] is x-axis
-				project(samples[i], samples[j], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 1);
-			}
-		}
+		// for (j = 0; j < n; ++j) {
+		// 	// project samples[j] to samples[i]
+		// 	if (i == j) continue;
+		// 	if (j < i) { // samples[i] is y-axis
+		// 		project(samples[i], samples[j], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 0);
+		// 	}
+		// 	else { // samples[i] is x-axis
+		// 		project(samples[i], samples[j], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 1);
+		// 	}
+		// }
 	}
+	// for (i = n - 1; i >= 0; --i) {
+	// 	for (j = 0; j < n; ++j) {
+	// 		// project samples[j] to samples[i]
+	// 		if (i == j) continue;
+	// 		if (j > i) { // samples[j] is y-axis
+	// 			project(samples[j], samples[i], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 0);
+	// 		}
+	// 		else { // samples[j] is x-axis
+	// 			project(samples[j], samples[i], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 1);
+	// 		}
+	// 	}
+	// 	if (i == 0) 
+	// 		break;
+	// 	// for (j = 0; j < n; ++j) {
+	// 	// 	// project samples[j] to samples[i]
+	// 	// 	if (i == j) continue;
+	// 	// 	if (j < i) { // samples[i] is y-axis
+	// 	// 		project(samples[i], samples[j], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 0);
+	// 	// 	}
+	// 	// 	else { // samples[i] is x-axis
+	// 	// 		project(samples[i], samples[j], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 1);
+	// 	// 	}
+	// 	// }
+	// }
 
-
+	// project self again
 	for (i = 0; i < n; ++i) {
 		project(samples[i], samples[i], samples[i].dense_clusts, samples[i].sparse_clusts, fopts, 0);
 	}
 
-	for (i = 0; i < n; ++i) {
-		samples[i].dump(genome.getName(i), fopts);
-
-		for (j = i + 1; j < n; ++j) {
-			acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));
-		}
-	}
+	// if (fopts.debug) {
+	// 	for (i = 0; i < n; ++i) {
+	// 		samples[i].dump(genome.getName(i), fopts);
+	// 		for (j = i + 1; j < n; ++j) {
+	// 			acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));
+	// 		}
+	// 	}
+	// }
 	cerr << "finish projecting breakpoints" << endl;
 
 	// construct the graph
 	// for each samples[i], find representative intervals as vertices
 	// add edge between any pair of intervals that have matches
 	graph superGraph;
+
+	// // decide relative strand for samples
+	// samples[0].relative_strand = 0;
+	// for (i = 1; i < n; ++i) {
+	// 	if (acrosamples[i][j - 1].strand == 0) 
+	// 		samples[i].relative_strand = 0;
+	// 	else
+	// 		samples[i].relative_strand = 1;
+	// }
+
 	for (i = 0; i < n; ++i) {
 		// substract self-self dotplot clusters
 		samples[i].substractClusters();
@@ -140,6 +175,6 @@ int main(int argc, char *argv[])
 	cerr << "finish constructing the graph" << endl;
 	// find connected components in the superGraph
 	superGraph.findConnetedComponents();
-
+	dumpGraph(samples, superGraph, fopts);
 	return 0;
 }

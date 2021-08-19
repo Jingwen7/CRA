@@ -167,7 +167,7 @@ void sketch(char *seq, uint32_t seqLen, uint32_t k, uint32_t w, uint32_t rid, ve
 		curKmer.y = p;
 		if ((cur.x & for_mask) < (curRC.x & for_mask)) curKmer.x = cur.x;
 		else curKmer.x = curRC.x;
-		if (debug) checkIfKmerCorrect(curKmer, k, seq);
+		// if (debug) checkIfKmerCorrect(curKmer, k, seq);
 
 		if (curKmer.x < activeKmer.x) {  
 			activeKmer.x = curKmer.x;
@@ -232,7 +232,7 @@ void sketch(char *seq, uint32_t seqLen, uint32_t k, uint32_t w, uint32_t rid, ve
 		if ((cur.x & for_mask) < (curRC.x & for_mask)) curKmer.x = cur.x;
 		else curKmer.x = curRC.x; 
 		curKmer.y = p;
-		if (debug) checkIfKmerCorrect(curKmer, k, seq);
+		// if (debug) checkIfKmerCorrect(curKmer, k, seq);
 		curKmers[p % w] = curKmer;
 		if (p - w >= activeKmer.y) {
 			activeKmer = curKmers[0];
@@ -244,11 +244,11 @@ void sketch(char *seq, uint32_t seqLen, uint32_t k, uint32_t w, uint32_t rid, ve
 			if (nextValidWindowEnd == p + k) {
 				insertKmer = activeKmer;
 				// debug
-				if (debug) {
-					uint256_t minimizer = (insertKmer.x & for_mask) >> 1;
-					strand = (bool) (insertKmer.x & rev_mask);
-					checkMinimizerMatch(minimizer, k, seq, insertKmer.y, strand);						
-				}
+				// if (debug) {
+				// 	uint256_t minimizer = (insertKmer.x & for_mask) >> 1;
+				// 	strand = (bool) (insertKmer.x & rev_mask);
+				// 	checkMinimizerMatch(minimizer, k, seq, insertKmer.y, strand);						
+				// }
 
 				insertKmer.y += ((uint64_t)rid << 32);
 				idxv.push_back(insertKmer);			
@@ -263,12 +263,12 @@ void sketch(char *seq, uint32_t seqLen, uint32_t k, uint32_t w, uint32_t rid, ve
 				activeKmer = curKmer;
 				if (nextValidWindowEnd == p+k) {
 					insertKmer = activeKmer;
-					// debug
-					if (debug) {
-						uint256_t minimizer = (insertKmer.x & for_mask) >> 1;
-						strand = (bool) (insertKmer.x & rev_mask);
-						checkMinimizerMatch(minimizer, k, seq, insertKmer.y, strand);						
-					}	
+					// // debug
+					// if (debug) {
+					// 	uint256_t minimizer = (insertKmer.x & for_mask) >> 1;
+					// 	strand = (bool) (insertKmer.x & rev_mask);
+					// 	checkMinimizerMatch(minimizer, k, seq, insertKmer.y, strand);						
+					// }	
 
 					insertKmer.y += ((uint64_t)rid << 32);
 					idxv.push_back(insertKmer);	
@@ -285,7 +285,7 @@ void sketch(char *seq, uint32_t seqLen, uint32_t k, uint32_t w, uint32_t rid, ve
 	}
 
 	for (uint32_t i = 0; i < idxv.size(); ++i) {
-		if (debug) checkIfKmerCorrect(curKmer, k, seq);
+		// if (debug) checkIfKmerCorrect(curKmer, k, seq);
 	}
 }
 

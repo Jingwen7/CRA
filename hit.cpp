@@ -145,19 +145,19 @@ void rf_hit(const vector<sample> & samples, const uint32_t a, const uint32_t b, 
 			
 		}
 	}
-	if (fopts.debug and !self) {
-		ofstream fclust("hit.bed", ios::app);
-		cerr << "forward hits: " << fhits.size() << endl;
-		for (uint32_t m = 0; m < fhits.size(); ++m) {
-			// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
-			fclust << fhits[m].x << "\t" << fhits[m].y << "\t" << fhits[m].x + iopt.k << "\t" << fhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "0" << endl;
-		}
-		cerr << "reverse hits: " << rhits.size() << endl;
-		for (uint32_t m = 0; m < rhits.size(); ++m) {
-			fclust << rhits[m].x << "\t" << rhits[m].y << "\t" << rhits[m].x + iopt.k << "\t" << rhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "1" << endl;
-		}
-		fclust.close();			
-	}
+	// if (fopts.debug and !self) {
+	// 	ofstream fclust("hit.bed", ios::app);
+	// 	cerr << "forward hits: " << fhits.size() << endl;
+	// 	for (uint32_t m = 0; m < fhits.size(); ++m) {
+	// 		// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
+	// 		fclust << fhits[m].x << "\t" << fhits[m].y << "\t" << fhits[m].x + iopt.k << "\t" << fhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "0" << endl;
+	// 	}
+	// 	cerr << "reverse hits: " << rhits.size() << endl;
+	// 	for (uint32_t m = 0; m < rhits.size(); ++m) {
+	// 		fclust << rhits[m].x << "\t" << rhits[m].y << "\t" << rhits[m].x + iopt.k << "\t" << rhits[m].y + iopt.k << "\t" << iopt.k << "\t" << "1" << endl;
+	// 	}
+	// 	fclust.close();			
+	// }
 }
 
 void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clust, bool st, const idxopt_t &iopt, const fragopt_t &fopts) 

@@ -54,8 +54,8 @@ breakpoint.o: breakpoint.cpp breakpoint.h cluster.h
 sample.o: sample.cpp breakpoint.h cluster.h rfpriv.h hit.h option.h index.h
 	$(CXX) $(CFLAGS) -c $< -I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS)
 
-graph.o: graph.cpp graph.h
-	$(CXX) $(CFLAGS) -c $< 	
+graph.o: graph.cpp graph.h sample.h unionfind.h
+	$(CXX) $(CFLAGS) -c $< 	-I $(CONDA_PREFIX)/include -L $(CONDA_PREFIX)/lib $(LIBS)
 
 clean:
 	rm -f $(PROG) $(PROG_EXTRA) *.o 

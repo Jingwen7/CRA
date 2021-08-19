@@ -15,6 +15,7 @@ public:
 	uint32_t idx;
 	uint32_t s;
 	uint32_t e; // s, e are referring to the positions in superGraph.intvs
+	// bool relative_strand;
 
 	sample () {};
 	~sample () {};
@@ -31,6 +32,7 @@ public:
 	void substractClusters ();
 	
 	void unifyIntv(const fragopt_t &fopts, graph &superGraph);
+
 };
 
 
@@ -63,5 +65,6 @@ public:
 };
 
 
+void dumpGraph (vector<sample> &samples, graph &superGraph, const fragopt_t &fopts);
 
 #endif
