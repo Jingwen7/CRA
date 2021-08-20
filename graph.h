@@ -42,6 +42,7 @@ public:
 	};
 
 	void init ();
-	void findConnetedComponents ();
+	void findConnetedComponents (bool dense);
+	void insertInvt (const vector<uint32_t> &clusterPivots, uint32_t idx, uint32_t &s, uint32_t &e);
 };
 #endif

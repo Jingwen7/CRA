@@ -278,8 +278,8 @@ void project_helper (set<uint32_t>::iterator its, set<uint32_t>::iterator ite, c
 	if (clust.strand == 0) {
 		for (auto it = its; it != ite; ++it) {
 			diff = (*it > *its) ? (*it - *its) : 0;
-			if (diff == 0)
-				continue;
+			// if (diff == 0)
+			// 	continue;
 			if (axis == 0) 
 				bps.insert(diff + clust.xStart);
 			else
@@ -289,8 +289,8 @@ void project_helper (set<uint32_t>::iterator its, set<uint32_t>::iterator ite, c
 	else {
 		for (auto it = ite; it != its; --it) {
 			diff = (*ite > *it) ? (*ite - *it) : 0;
-			if (diff == 0)
-				continue;			
+			// if (diff == 0)
+			// 	continue;			
 			if (axis == 0)
 				bps.insert(diff + clust.xStart);
 			else				
@@ -299,78 +299,147 @@ void project_helper (set<uint32_t>::iterator its, set<uint32_t>::iterator ite, c
 	}
 }
 
-void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, const fragopt_t &fopts, bool axis)
+
+// project sample a to sample b
+// axis == 0: project y-axis to x-axis
+// axis == 1: project x-axis to y-axis
+void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, const fragopt_t &fopts, bool axis, bool dense)
 {
 	uint32_t i;
 	set<uint32_t> bps;
 	set<uint32_t> proj_bps;
+	// insert original breakpoints of a to bps
   	for (auto&it : a.breakpoints) 
     	bps.insert(it);
 
 	auto its = bps.begin();
 	auto ite = bps.begin();
 
-	for (auto&it : dense_clusts) {
-		if (axis == 0) {
-			bps.insert(it.yStart);
-			bps.insert(it.yEnd);
-		}
-		else{
-			bps.insert(it.xStart);
-			bps.insert(it.xEnd);
-		}
+	// insert original clusters boundaries to bps
+	if (dense) {
+		for (auto&it : dense_clusts) {
+			if (axis == 0) {
+				bps.insert(it.yStart);
+				bps.insert(it.yEnd);
+			}
+			else{
+				bps.insert(it.xStart);
+				bps.insert(it.xEnd);
+			}
+		}	
+
+		for (i = 0; i < dense_clusts.size(); ++i) {
+			if (axis == 0) {
+				its = bps.lower_bound(dense_clusts[i].yStart); 
+				ite = bps.lower_bound(dense_clusts[i].yEnd);
+				assert(*its == dense_clusts[i].yStart and *ite == dense_clusts[i].yEnd);			
+			}
+			else {
+				its = bps.lower_bound(dense_clusts[i].xStart); 
+				ite = bps.lower_bound(dense_clusts[i].xEnd);
+				assert(*its == dense_clusts[i].xStart and *ite == dense_clusts[i].xEnd);				
+			}
+
+			// project the first collected breakpoints to the other axis
+			project_helper(its, ite, dense_clusts[i], proj_bps, axis);
+		}		
+	}
+	else {
+		for (auto&it : sparse_clusts) {
+			if (axis == 0) {
+				bps.insert(it.yStart);
+				bps.insert(it.yEnd);
+			}
+			else{
+				bps.insert(it.xStart);
+				bps.insert(it.xEnd);
+			}
+		}	
+
+		for (i = 0; i < sparse_clusts.size(); ++i) {
+			if (axis == 0) {
+				its = bps.lower_bound(sparse_clusts[i].yStart); 
+				ite = bps.lower_bound(sparse_clusts[i].yEnd);
+				assert(*its == sparse_clusts[i].yStart and *ite == sparse_clusts[i].yEnd);			
+			}
+			else {
+				its = bps.lower_bound(sparse_clusts[i].xStart); 
+				ite = bps.lower_bound(sparse_clusts[i].xEnd);
+				assert(*its == sparse_clusts[i].xStart and *ite == sparse_clusts[i].xEnd);				
+			}
+
+			// project the first collected breakpoints to the other axis	
+			project_helper(its, ite, sparse_clusts[i], proj_bps, axis);
+		}	
 	}
 
-	for (auto&it : sparse_clusts) {
-		if (axis == 0) {
-			bps.insert(it.yStart);
-			bps.insert(it.yEnd);
-		}
-		else{
-			bps.insert(it.xStart);
-			bps.insert(it.xEnd);
-		}
-	}
-	for (i = 0; i < dense_clusts.size(); ++i) {
-		if (axis == 0) {
-			its = bps.lower_bound(dense_clusts[i].yStart); 
-			ite = bps.lower_bound(dense_clusts[i].yEnd);
-			assert(*its == dense_clusts[i].yStart and *ite == dense_clusts[i].yEnd);			
-		}
-		else {
-			its = bps.lower_bound(dense_clusts[i].xStart); 
-			ite = bps.lower_bound(dense_clusts[i].xEnd);
-			assert(*its == dense_clusts[i].xStart and *ite == dense_clusts[i].xEnd);				
-		}
-
-		// project the first collected breakpoints to the other axis
-		project_helper(its, ite, dense_clusts[i], proj_bps, axis);
-	}	
-
-	for (i = 0; i < sparse_clusts.size(); ++i) {
-		if (axis == 0) {
-			its = bps.lower_bound(sparse_clusts[i].yStart); 
-			ite = bps.lower_bound(sparse_clusts[i].yEnd);
-			assert(*its == sparse_clusts[i].yStart and *ite == sparse_clusts[i].yEnd);			
-		}
-		else {
-			its = bps.lower_bound(sparse_clusts[i].xStart); 
-			ite = bps.lower_bound(sparse_clusts[i].xEnd);
-			assert(*its == sparse_clusts[i].xStart and *ite == sparse_clusts[i].xEnd);				
-		}
-
-		// project the first collected breakpoints to the other axis	
-		project_helper(its, ite, sparse_clusts[i], proj_bps, axis);
-	}
-
-	set<uint32_t> b_sort;
+	// set<uint32_t> b_sort;
 	for (auto&it : b.breakpoints)
 		proj_bps.insert(it);
 
 	b.breakpoints.clear();
   	for (auto it = proj_bps.begin(); it != proj_bps.end(); ++it)
     	b.breakpoints.push_back(*it);	
+}
 
+
+// project sample a to sample b
+// axis == 0: project y-axis to x-axis
+// axis == 1: project x-axis to y-axis
+void selfproject (sample &a, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, const fragopt_t &fopts, bool dense)
+{
+	uint32_t i;
+	set<uint32_t> bps;
+	set<uint32_t> temp_bps;
+	// insert original breakpoints of a to bps
+  	for (auto&it : a.breakpoints) 
+    	bps.insert(it);
+
+	auto its = bps.begin();
+	auto ite = bps.begin();
+
+	// insert original clusters boundaries to bps
+	if (dense) {
+		for (auto&it : dense_clusts) {
+			bps.insert(it.yStart);
+			bps.insert(it.yEnd);
+		}
+
+		for (i = 0; i < dense_clusts.size(); ++i) {
+			its = bps.lower_bound(dense_clusts[i].yStart); 
+			ite = bps.lower_bound(dense_clusts[i].yEnd);
+			assert(*its == dense_clusts[i].yStart and *ite == dense_clusts[i].yEnd);			
+
+			// project the first collected breakpoints to the other axis
+			temp_bps.clear();
+			project_helper(its, ite, dense_clusts[i], temp_bps, 0);
+
+			for (auto&tmp : temp_bps) 
+				bps.insert(tmp);
+		}		
+	}
+	else {
+		for (auto&it : sparse_clusts) {
+			bps.insert(it.yStart);
+			bps.insert(it.yEnd);
+		}	
+
+		for (i = 0; i < sparse_clusts.size(); ++i) {
+			its = bps.lower_bound(sparse_clusts[i].yStart); 
+			ite = bps.lower_bound(sparse_clusts[i].yEnd);
+			assert(*its == sparse_clusts[i].yStart and *ite == sparse_clusts[i].yEnd);			
+
+			// project the first collected breakpoints to the other axis	
+			temp_bps.clear();
+			project_helper(its, ite, sparse_clusts[i], temp_bps, 0);
+			for (auto&tmp : temp_bps) 
+				bps.insert(tmp);
+		}	
+	}
+
+	a.breakpoints.clear();
+  	for (auto it = bps.begin(); it != bps.end(); ++it)
+    	a.breakpoints.push_back(*it);	
 }
 
 void secondTrim (sample &a, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vector<uint32_t> &bps_first, vector<uint32_t> &bps_second,

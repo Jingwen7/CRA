@@ -29,14 +29,14 @@ public:
 		CleanMaxDiag = 100;
 		DiagMinCluster = 500;
 		clusterMaxDiag = 20;
-		clusterMaxDist = 800;
+		clusterMaxDist = 200; // 800
 		clusterMinLength = 1000;
 		// CleanMaxDiag = 100;
 		// DiagMinCluster = 50;
 		// clusterMaxDiag = 1;
 		// clusterMaxDist = 1000;
 		// clusterMinLength = 500;
-		clusterTrimedge = 200;
+		clusterTrimedge = 400;
 		code = 0;
 		debug = true;
 		freq = 50;

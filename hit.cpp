@@ -80,26 +80,26 @@ inline void find_match_boundary_checking (const sample &sample_i, const sample &
 	if (self) { // only half of the self-self alignment
 		for (i = 0; i < pos.size(); ++i) {
 			for (j = i + 1; j < pos.size(); ++j) {
-				if (pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back()
-					and pos[j] >= sample_j.breakpoints[0] and pos[j] <= sample_j.breakpoints.back()) {
+				// if (pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back()
+					// and pos[j] >= sample_j.breakpoints[0] and pos[j] <= sample_j.breakpoints.back()) {
 					temp.mi = (mi & fmask); 
 					temp.x = pos[i]; 
 					temp.y = pos[j];
 					hits.push_back(temp);
-				}
+				// }
 			}
 		}
 	}
 	else {
 		auto ot = khash.find(mi);
 		if (ot != khash.end()) {
-			for (i = 0; i < ot->second.size(); ++i) {
-				for (j = 0; j < pos.size(); ++j) {
+			for (j = 0; j < ot->second.size(); ++j) {
+				for (i = 0; i < pos.size(); ++i) {
 					if (pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back()
-					and (ot->second)[i] >= sample_j.breakpoints[0] and (ot->second)[i] <= sample_j.breakpoints.back()) {
+					and (ot->second)[j] >= sample_j.breakpoints[0] and (ot->second)[j] <= sample_j.breakpoints.back()) {
 						temp.mi = (mi & fmask); 
-						temp.x = pos[j]; 
-						temp.y = (ot->second)[i];
+						temp.x = pos[i]; 
+						temp.y = (ot->second)[j];
 						hits.push_back(temp);	
 					}
 				}
@@ -160,11 +160,47 @@ void rf_hit(const vector<sample> & samples, const uint32_t a, const uint32_t b, 
 	// }
 }
 
+bool CloseToPreviousCluster(const cluster &prev, uint32_t xStart, uint32_t xEnd, uint32_t yStart, uint32_t yEnd, const fragopt_t &fopts) {
+	int64_t xDiff = abs((int64_t)xStart - (int64_t)prev.xEnd);
+	int64_t yDiff;
+	if (prev.strand == 0) 
+		yDiff = abs((int64_t) yStart - (int64_t) prev.yEnd);
+	else 
+		yDiff = abs((int64_t) prev.yStart - (int64_t) yEnd);	// (TODO): make sure this is working for reversed clusters!
+
+	int64_t curDiag = 0, prevDiag;
+	if (prev.strand == 0) {
+		curDiag = (int64_t) yStart - (int64_t) xStart;
+		prevDiag = (int64_t) prev.yEnd - (int64_t) prev.xEnd;
+	}
+	else {
+		curDiag = (int64_t) xStart + (int64_t) yEnd;
+		prevDiag = (int64_t) prev.xStart + (int64_t) prev.yEnd;
+	}
+
+	if (max(xDiff, yDiff) <= 100 and abs(curDiag - prevDiag) <= 50) 
+		return true;
+	return false;
+}
+
+void UpdateCluster(cluster &prev, uint32_t xS, uint32_t xE, uint32_t yS, uint32_t yE) {
+	prev.xStart = min(prev.xStart, xS);
+	prev.xEnd = max(prev.xEnd, xE);
+	prev.yStart = min(prev.yStart, yS);
+	prev.yEnd = max(prev.yEnd, yE);
+}
+
+void MergeTwoClusters(cluster &prev, uint32_t xS, uint32_t xE, uint32_t yS, uint32_t yE, uint32_t end) {
+	UpdateCluster(prev, xS, xE, yS, yE);
+	prev.e = end;	
+}
+
 void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clust, bool st, const idxopt_t &iopt, const fragopt_t &fopts) 
 {
 	sort(hits.begin() + s, hits.begin() + e, hitCartesianSort);
 	uint32_t initial = clust.size();
 	uint32_t cs = s, ce = s;
+	int64_t diagdiff, gapdiff;
 	while (cs < e) {
 		ce = cs + 1;
 		uint32_t  xStart = hits[cs].x, 
@@ -172,8 +208,7 @@ void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clus
 			      yStart = hits[cs].y, 
 			      yEnd = hits[cs].y + iopt.k;
 
-		while (ce < e and abs(DiagonalDifference(hits[ce], hits[ce - 1], st)) < fopts.clusterMaxDiag 
-					  and minGapDifference(hits[ce], hits[ce - 1]) <= fopts.clusterMaxDist ) {
+		while (ce < e and abs(DiagonalDifference(hits[ce], hits[ce - 1], st)) < fopts.clusterMaxDiag and minGapDifference(hits[ce], hits[ce - 1]) <= fopts.clusterMaxDist ) {
 			xStart = min(xStart, hits[ce].x);
 			xEnd   = max(xEnd, hits[ce].x + iopt.k);
 			yStart = min(yStart, hits[ce].y);
@@ -181,8 +216,14 @@ void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clus
 			ce++;
 		}	
 
-		if (ce - cs >= fopts.DiagMinCluster and xEnd - xStart >= fopts.clusterMinLength and yEnd - yStart >= fopts.clusterMinLength) 
-			clust.push_back(cluster(cs, ce, xStart, xEnd, yStart, yEnd, st));
+		if (ce - cs >= fopts.DiagMinCluster and xEnd - xStart >= fopts.clusterMinLength and yEnd - yStart >= fopts.clusterMinLength and (float) (ce - cs) / (xEnd - xStart) >= 0.05) {
+			if (clust.size() > 0 and CloseToPreviousCluster(clust.back(), xStart, xEnd, yStart, yEnd, fopts)) {
+				MergeTwoClusters(clust.back(), xStart, xEnd, yStart, yEnd, ce);
+			}
+			else {
+				clust.push_back(cluster(cs, ce, xStart, xEnd, yStart, yEnd, st));
+			}
+		}
 		cs = ce;
 	}	
 
@@ -303,7 +344,7 @@ void cleanDiag(vector<hit> &hits, clusters &clust, const fragopt_t &fopts, const
 	// 	ofstream fclust("cleanmatches.bed", ios_base::app);
 	// 	for (uint32_t m = 0; m < hits.size(); ++m) {
 	// 		// checkForwardmatch(mi.genome, a, b, fhits[m].x, fhits[m].y, iopt);
-	// 		fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t" << counts[m] << endl;
+	// 		fclust << hits[m].x << "\t" << hits[m].y << "\t" << hits[m].x + iopt.k << "\t" << hits[m].y + iopt.k << "\t" << iopt.k << "\t" << st << "\t" << "999"<< endl;
 	// 	}
 	// 	fclust.close();			
 	// }
@@ -320,6 +361,9 @@ void cleanDiag(vector<hit> &hits, clusters &clust, const fragopt_t &fopts, const
 		count_s = c;	
 		c++;			
 	}	
+	if (count_s < c and c == counts.size() + 1) {
+		storeDiagCluster (count_s, c - 1, hits, clust, st, iopt, fopts);		
+	}
 };
 
 

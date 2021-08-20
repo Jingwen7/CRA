@@ -16,44 +16,86 @@ void sample::init (uint32_t i, string *rn)
 }
 
 void sample::process (vector<sample> &samples, const uint32_t a, const uint32_t b, const idx_t &mi_s, const idx_t &mi_l, const fragopt_t &fopts, 
-					const idxopt_t &siopt, const idxopt_t &liopt, bool self)
+					const idxopt_t &siopt, const idxopt_t &liopt, bool self, bool dense)
 {
 	// get diagonal cluster matches
-	vector<hit> dense_fhits, dense_rhits;
-	rf_hit(samples, a, b, mi_s, dense_fhits, dense_rhits, fopts, siopt, 1); // find rhits also
-	cerr << "finish rf_hit for dense kmer!" << endl;
+	set<uint32_t> bps;
+	if (dense) {
+		vector<hit> dense_fhits, dense_rhits;
+		rf_hit(samples, a, b, mi_s, dense_fhits, dense_rhits, fopts, siopt, 1); // find rhits also
+		cerr << "finish rf_hit for dense kmer!" << endl;
 
-	// clusters dense_clusts;
-	cleanDiag(dense_fhits, dense_clusts, fopts, siopt, 0);
-	cleanDiag(dense_rhits, dense_clusts, fopts, siopt, 1);
-	dense_fhits.clear();
-	dense_rhits.clear();
-	cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
+		// clusters dense_clusts;
+		cleanDiag(dense_fhits, dense_clusts, fopts, siopt, 0);
+		cleanDiag(dense_rhits, dense_clusts, fopts, siopt, 1);
 
-	vector<hit> sparse_fhits, sparse_rhits;
-	rf_hit(samples, a, b, mi_l, sparse_fhits, sparse_rhits, fopts, liopt, 1); // find rhits also
-	cerr << "finish rf_hit for dense kmer!" << endl;
+		// if (fopts.debug) {
+		// 	ofstream clust("single_hits.bed", ios_base::app);
+		// 	for (int m = 0; m < dense_fhits.size(); m++) {
+		// 		clust << dense_fhits[m].x << "\t" << dense_fhits[m].y << "\t" << dense_fhits[m].x + mi_s.k << "\t"
+		// 			   << dense_fhits[m].y + mi_s.k << "\t" << mi_s.k << "\t"  
+		// 			   << "0"  << "\t" << *(samples[a].readname) << endl;				
+		// 	}
+		// 	for (int m = 0; m < dense_rhits.size(); m++) {
+		// 		clust << dense_rhits[m].x << "\t" << dense_rhits[m].y << "\t" << dense_rhits[m].x + mi_s.k << "\t"
+		// 			   << dense_rhits[m].y + mi_s.k << "\t" << mi_s.k << "\t"  
+		// 			   << "1" << "\t" << *(samples[a].readname) << endl;				
+		// 	}
+		// 	clust.close();			
+		// }
 
-	// clusters sparse_clusts;
-	cleanDiag(sparse_fhits, sparse_clusts, fopts, liopt, 0);
-	cleanDiag(sparse_rhits, sparse_clusts, fopts, liopt, 1);
-	sparse_fhits.clear();
-	sparse_rhits.clear();
-	cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
+		dense_fhits.clear();
+		dense_rhits.clear();
+		cerr << "finish cleanDiag and store diagonal clusters for dense kmer!" << endl;			
 
-	// flip the clusters
-	flipCluster(dense_clusts, fopts, siopt, 1);
-	flipCluster(sparse_clusts, fopts, liopt, 0);
+		// flip the clusters
+		flipCluster(dense_clusts, fopts, siopt, 1);
+		assert(dense_clusts.size() > 0 and dense_clusts.size() % 2 == 0);
+		// insert original clusters boundaries to bps
+		for (auto&it : dense_clusts) {
+			bps.insert(it.yStart);
+			bps.insert(it.yEnd);
+			bps.insert(it.xStart);
+			bps.insert(it.xEnd);
+		}
+	}
+	else {
+		vector<hit> sparse_fhits, sparse_rhits;
+		rf_hit(samples, a, b, mi_l, sparse_fhits, sparse_rhits, fopts, liopt, 1); // find rhits also
+		cerr << "finish rf_hit for sparse kmer!" << endl;
 
-	// (TODO) Jingwen: make sure the code work for inversed cluster
-	// trim the breakpoints on y-axis
-	vector<uint32_t> bps_Y;
-	set<uint32_t> bpset;
-	firstTrim(samples[a], bpset, dense_clusts, sparse_clusts, bps_Y, fopts, 0, 0);
+		// clusters sparse_clusts;
+		cleanDiag(sparse_fhits, sparse_clusts, fopts, liopt, 0);
+		cleanDiag(sparse_rhits, sparse_clusts, fopts, liopt, 1);
+		sparse_fhits.clear();
+		sparse_rhits.clear();
+		cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
 
-	// trim the breakpoints on x-axis;
-	secondTrim(samples[a], dense_clusts, sparse_clusts, bps_Y, breakpoints, fopts, 0, 0);
-	bps_Y.clear();
+		flipCluster(sparse_clusts, fopts, liopt, 0);
+
+		// insert original clusters boundaries to bps
+		for (auto&it : sparse_clusts) {
+			bps.insert(it.yStart);
+			bps.insert(it.yEnd);
+			bps.insert(it.xStart);
+			bps.insert(it.xEnd);
+		}
+	}
+
+	samples[a].breakpoints.clear();
+  	for (auto&it : bps) {
+    	samples[a].breakpoints.push_back(it);
+  	}
+  	bps.clear();
+
+	// // trim the breakpoints on y-axis
+	// vector<uint32_t> bps_Y;
+	// set<uint32_t> bpset;
+	// firstTrim(samples[a], bpset, dense_clusts, sparse_clusts, bps_Y, fopts, 0, 0);
+
+	// // trim the breakpoints on x-axis;
+	// secondTrim(samples[a], dense_clusts, sparse_clusts, bps_Y, breakpoints, fopts, 0, 0);
+	// bps_Y.clear();
 }
 
 void sample::dump (string * readname, const fragopt_t &fopts)
@@ -81,16 +123,18 @@ void sample::dump (string * readname, const fragopt_t &fopts)
 void sample::substractClusters ()
 {
 	int size = dense_clusts.size();
-	dense_clusts.resize( size / 2);
+	if (size > 0) 
+		dense_clusts.resize( size / 2);
 	size = sparse_clusts.size();
-	sparse_clusts.resize(size / 2);
+	if (size > 0)
+		sparse_clusts.resize(size / 2);
 }
 
-void sample::clusterBreakpoints (const fragopt_t &fopts, graph &superGraph)
+
+void sample::clusterBreakpoints (const fragopt_t &fopts, vector<uint32_t> &clusterPivots)
 {
 	vector<uint32_t> trimInfo(breakpoints.size());
 	iota(trimInfo.begin(), trimInfo.end(), 0);
-	vector<uint32_t> clusterPivots;
 
 	int i;
 	uint32_t prev;
@@ -126,13 +170,15 @@ void sample::clusterBreakpoints (const fragopt_t &fopts, graph &superGraph)
 
 	breakpoints = clusterPivots; // update breakpoints to cleaner version
 
-	// insert intervals to graph
+
+	/*
 	uint32_t o = superGraph.intvs.size();
 	for (i = 1; i < clusterPivots.size(); ++i) 
 		superGraph.intvs.push_back(interval(clusterPivots[i - 1], clusterPivots[i], idx));
 
 	s = o;
 	e = superGraph.intvs.size();
+	*/
 
 	// o = superGraph.adlist_dense.size();
 	// superGraph.adlist_dense.resize(o + clusterPivots.size());
@@ -185,10 +231,12 @@ void addEdge(const fragopt_t &fopts, const vector<cluster> &clusts, vector<uint3
 	}
 }
 
-void sample::unifyIntv(const fragopt_t &fopts, graph &superGraph)
+void sample::unifyIntv(const fragopt_t &fopts, graph &superGraph, bool dense)
 {
-	addEdge(fopts, dense_clusts, breakpoints, superGraph.adlist_dense, s);
-	addEdge(fopts, sparse_clusts, breakpoints, superGraph.adlist_sparse, s);
+	if (dense)
+		addEdge(fopts, dense_clusts, breakpoints, superGraph.adlist_dense, s);
+	else
+		addEdge(fopts, sparse_clusts, breakpoints, superGraph.adlist_sparse, s);
 }
 
 void acrosample::init (uint32_t idx, uint32_t jdx, sample * Pi, sample * Pj)
@@ -202,33 +250,50 @@ void acrosample::init (uint32_t idx, uint32_t jdx, sample * Pi, sample * Pj)
 }
 
 void acrosample::across_process (vector<sample> &samples, const uint32_t a, const uint32_t b, const idx_t &mi_s, const idx_t &mi_l, 
-		const fragopt_t &fopts, const idxopt_t &siopt, const idxopt_t &liopt, bool self)
+		const fragopt_t &fopts, const idxopt_t &siopt, const idxopt_t &liopt, bool self, bool dense)
 {
-	cerr << "process across sample " << a << " " << b << endl;
-	// get diagonal cluster matches
-	vector<hit> dense_fhits, dense_rhits;
-	rf_hit(samples, a, b, mi_s, dense_fhits, dense_rhits, fopts, siopt, 0); // find rhits also
-	cerr << "finish rf_hit for dense kmer!" << endl;
+	if (dense) {
+		cerr << "process across sample " << a << " " << b << endl;
+		// get diagonal cluster matches
+		vector<hit> dense_fhits, dense_rhits;
+		rf_hit(samples, a, b, mi_s, dense_fhits, dense_rhits, fopts, siopt, 0); // find rhits also
+		cerr << "finish rf_hit for dense kmer!" << endl;
 
-	// clusters dense_clusts;
-	cleanDiag(dense_fhits, dense_clusts, fopts, siopt, 0);
-	cleanDiag(dense_rhits, dense_clusts, fopts, siopt, 1);
+		// clusters dense_clusts;
+		cleanDiag(dense_fhits, dense_clusts, fopts, siopt, 0);
+		cleanDiag(dense_rhits, dense_clusts, fopts, siopt, 1);
 
-	dense_fhits.clear();
-	dense_rhits.clear();
-	cerr << "finish cleanDiag and store diagonal clusters for dense kmer!" << endl;
+		// if (fopts.debug) {
+		// 	ofstream clust("pair_hits.bed", ios_base::app);
+		// 	for (int m = 0; m < dense_fhits.size(); m++) {
+		// 		clust << dense_fhits[m].x << "\t" << dense_fhits[m].y << "\t" << dense_fhits[m].x + mi_s.k << "\t"
+		// 			   << dense_fhits[m].y + mi_s.k << "\t" << mi_s.k << "\t"  
+		// 			   << "0"  << "\t" << *(samples[a].readname) + " " + *(samples[b].readname) << endl;				
+		// 	}
+		// 	for (int m = 0; m < dense_rhits.size(); m++) {
+		// 		clust << dense_rhits[m].x << "\t" << dense_rhits[m].y << "\t" << dense_rhits[m].x + mi_s.k << "\t"
+		// 			   << dense_rhits[m].y + mi_s.k << "\t" << mi_s.k << "\t"  
+		// 			   << "1" << "\t" << *(samples[a].readname) + " " + *(samples[b].readname) << endl;				
+		// 	}
+		// 	clust.close();			
+		// }
 
-	vector<hit> sparse_fhits, sparse_rhits;
-	rf_hit(samples, a, b, mi_l, sparse_fhits, sparse_rhits, fopts, liopt, 0); // find rhits also
-	cerr << "finish rf_hit for sparse kmer!" << endl;
+		dense_fhits.clear();
+		dense_rhits.clear();
+		cerr << "finish cleanDiag and store diagonal clusters for dense kmer!" << endl;		
+	}
+	else {
+		vector<hit> sparse_fhits, sparse_rhits;
+		rf_hit(samples, a, b, mi_l, sparse_fhits, sparse_rhits, fopts, liopt, 0); // find rhits also
+		cerr << "finish rf_hit for sparse kmer!" << endl;
 
-	// clusters sparse_clusts;
-	cleanDiag(sparse_fhits, sparse_clusts, fopts, liopt, 0);
-	cleanDiag(sparse_rhits, sparse_clusts, fopts, liopt, 1);
-	sparse_fhits.clear();
-	sparse_rhits.clear();
-	cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;
-
+		// clusters sparse_clusts;
+		cleanDiag(sparse_fhits, sparse_clusts, fopts, liopt, 0);
+		cleanDiag(sparse_rhits, sparse_clusts, fopts, liopt, 1);
+		sparse_fhits.clear();
+		sparse_rhits.clear();
+		cerr << "finish cleanDiag and store diagonal clusters for sparse kmer!" << endl;		
+	}
 	// // (TODO) Jingwen: make sure the code work for inversed cluster
 	// // trim the breakpoints on y-axis
 	// vector<uint32_t> bps_Y;
@@ -257,8 +322,68 @@ void acrosample::decideStrand ()
 		strand = 1;
 }
 
+void trimOneCluster (cluster &clust, uint32_t left, uint32_t right, bool axis = 1) 
+{
+	if (axis == 1) { // x-axis
+		if (clust.xStart < left)
+			clust.xStart = left;
+		if (clust.xEnd > right)
+			clust.xEnd = right;
+	}
+	else {
+		if (clust.yStart < left)
+			clust.yStart = left;
+		if (clust.yEnd > right)
+			clust.yEnd = right;
+	}
+}
+
+void acrosample::trimclusters(bool dense)
+{
+	uint32_t left, right;
+	if (dense) {
+		left = pi->breakpoints[0];
+		right = pi->breakpoints.back();
+		for (auto&it : dense_clusts) {
+			trimOneCluster(it, left, right);
+		}
+		left = pj->breakpoints[0];
+		right = pj->breakpoints.back();		
+		for (auto&it : dense_clusts) {
+			trimOneCluster(it, left, right, 0);
+		}
+	}
+	else {
+		left = pi->breakpoints[0];
+		right = pi->breakpoints.back();
+		for (auto&it : sparse_clusts) {
+			trimOneCluster(it, left, right);
+		}
+		left = pj->breakpoints[0];
+		right = pj->breakpoints.back();		
+		for (auto&it : sparse_clusts) {
+			trimOneCluster(it, left, right, 0);
+		}		
+	}
+}
+
 void acrosample::dump (string * readname_i, string * readname_j, const fragopt_t &fopts, uint32_t len)
 {
+	if (fopts.debug) {
+		ofstream clust("pair_cluster.bed", ios_base::app);
+		for (int m = 0; m < dense_clusts.size(); m++) {
+			clust << dense_clusts[m].xStart << "\t" << dense_clusts[m].yStart << "\t" << dense_clusts[m].xEnd << "\t"
+				   << dense_clusts[m].yEnd << "\t" << dense_clusts[m].xEnd - dense_clusts[m].xStart << "\t"  
+				   << dense_clusts[m].strand  << "\t" << m << "\t" << "1" << "\t" << *readname_i + " " + *readname_j << endl;				
+		}
+		for (int m = 0; m < sparse_clusts.size(); m++) {
+			clust << sparse_clusts[m].xStart << "\t" << sparse_clusts[m].yStart << "\t" << sparse_clusts[m].xEnd << "\t"
+				   << sparse_clusts[m].yEnd << "\t" << sparse_clusts[m].xEnd - sparse_clusts[m].xStart << "\t"  
+				   << sparse_clusts[m].strand  << "\t" << m << "\t" << "1" << "\t" << *readname_i + " " + *readname_j << endl;				
+		}
+		clust.close();				
+	}
+
 	if (fopts.debug) {
 		ofstream clust("cluster_acrosssample.bed", ios_base::app);
 		cerr << "across sample dense_clusts.size(): " << dense_clusts.size() << endl;
@@ -269,11 +394,11 @@ void acrosample::dump (string * readname_i, string * readname_j, const fragopt_t
 				   << dense_clusts[m].yEnd << "\t" << dense_clusts[m].xEnd - dense_clusts[m].xStart << "\t"  
 				   << dense_clusts[m].strand  << "\t" << m << "\t" << "1" << "\t" << *readname_i << "\t" << *readname_j << endl;				
 		}
-		for (int m = 0; m < sparse_clusts.size(); ++m) {
-			clust << sparse_clusts[m].xStart << "\t" << sparse_clusts[m].yStart << "\t" << sparse_clusts[m].xEnd << "\t"
-				   << sparse_clusts[m].yEnd << "\t" << sparse_clusts[m].xEnd - sparse_clusts[m].xStart << "\t"  
-				   << sparse_clusts[m].strand  << "\t" << m << "\t" << "0" << "\t" << *readname_i << "\t" << *readname_j << endl;				
-		}			
+		// for (int m = 0; m < sparse_clusts.size(); ++m) {
+		// 	clust << sparse_clusts[m].xStart << "\t" << sparse_clusts[m].yStart << "\t" << sparse_clusts[m].xEnd << "\t"
+		// 		   << sparse_clusts[m].yEnd << "\t" << sparse_clusts[m].xEnd - sparse_clusts[m].xStart << "\t"  
+		// 		   << sparse_clusts[m].strand  << "\t" << m << "\t" << "0" << "\t" << *readname_i << "\t" << *readname_j << endl;				
+		// }			
 		clust.close();
 
 		ofstream fclust("trimlines_acrosssample.bed", ios_base::app);
@@ -328,10 +453,12 @@ void addEdge_acros (UF *uf, const fragopt_t &fopts, const vector<cluster> &clust
 	}	
 }
 
-void acrosample::unifyIntv(const fragopt_t &fopts, graph &superGraph)
+void acrosample::unifyIntv(const fragopt_t &fopts, graph &superGraph, bool dense)
 {
-	addEdge_acros(superGraph.uf, fopts, dense_clusts, pi, pj, superGraph.adlist_dense);
-	addEdge_acros(superGraph.uf, fopts, sparse_clusts, pi, pj, superGraph.adlist_sparse);
+	if (dense)
+		addEdge_acros(superGraph.uf, fopts, dense_clusts, pi, pj, superGraph.adlist_dense);
+	else
+		addEdge_acros(superGraph.uf, fopts, sparse_clusts, pi, pj, superGraph.adlist_sparse);
 }
 
 void dumpGraph (vector<sample> &samples, graph &superGraph, const fragopt_t &fopts)
@@ -350,37 +477,37 @@ void dumpGraph (vector<sample> &samples, graph &superGraph, const fragopt_t &fop
 	}
 	fclust.close();		
 
-	ofstream hclust("sparse_assignment.bed", ios_base::app);
-	for (i = 0; i < samples.size(); ++i) {
-		hclust << *(samples[i].readname) << ": "; 
-		for (k = samples[i].s; k < samples[i].e; ++k) {
-			if (k != samples[i].e - 1)
-				hclust << superGraph.colors_sparse[k] << ", ";
-			else 
-				hclust << superGraph.colors_sparse[k] << endl;			
-		}
-	}
-	hclust.close();	
+	// ofstream hclust("sparse_assignment.bed", ios_base::app);
+	// for (i = 0; i < samples.size(); ++i) {
+	// 	hclust << *(samples[i].readname) << ": "; 
+	// 	for (k = samples[i].s; k < samples[i].e; ++k) {
+	// 		if (k != samples[i].e - 1)
+	// 			hclust << superGraph.colors_sparse[k] << ", ";
+	// 		else 
+	// 			hclust << superGraph.colors_sparse[k] << endl;			
+	// 	}
+	// }
+	// hclust.close();	
 
-	ofstream kclust("assignment.bed", ios_base::app);
-	for (i = 0; i < samples.size(); ++i) {
-		kclust << *(samples[i].readname) << ": "; 
-		for (k = samples[i].s; k < samples[i].e; ++k) {
-			if (k != samples[i].e - 1) {
-				if (superGraph.colors_sparse[k] != 0)
-					kclust << superGraph.colors_sparse[k] << ", ";
-				else
-					kclust << superGraph.colors_dense[k] << ", ";
-			}
-			else {
-				if (superGraph.colors_sparse[k] != 0)
-					kclust << superGraph.colors_sparse[k] << endl;
-				else
-					kclust << superGraph.colors_dense[k] << endl;
-			}
-		}
-	}
-	kclust.close();	
+	// ofstream kclust("assignment.bed", ios_base::app);
+	// for (i = 0; i < samples.size(); ++i) {
+	// 	kclust << *(samples[i].readname) << ": "; 
+	// 	for (k = samples[i].s; k < samples[i].e; ++k) {
+	// 		if (k != samples[i].e - 1) {
+	// 			if (superGraph.colors_sparse[k] != 0)
+	// 				kclust << superGraph.colors_sparse[k] << ", ";
+	// 			else
+	// 				kclust << superGraph.colors_dense[k] << ", ";
+	// 		}
+	// 		else {
+	// 			if (superGraph.colors_sparse[k] != 0)
+	// 				kclust << superGraph.colors_sparse[k] << endl;
+	// 			else
+	// 				kclust << superGraph.colors_dense[k] << endl;
+	// 		}
+	// 	}
+	// }
+	// kclust.close();	
 
 	ofstream lclust("lens.bed", ios_base::app);
 	for (i = 0; i < samples.size(); ++i) {

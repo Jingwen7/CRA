@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 	}
 
 	idxopt_t siopt(20, 1);
-	idxopt_t liopt(100, 1);
+	idxopt_t liopt(50, 1);
 	fragopt_t fopts;
 
 	// read input FASTA file
@@ -58,81 +58,86 @@ int main(int argc, char *argv[])
 	uint32_t i, j;
 	uint32_t n = genome.getSize();
 
-	// Get the breakpoints for each sample
+	// Get the breakpoints for each sample dense_clusts
 	vector<sample> samples(genome.getSize());
 	for (i = 0; i < n; ++i) {
 		cerr << "process sample: " << *genome.getName(i) << " " << i << endl;
 		samples[i].init(i, genome.getName(i));
-		samples[i].process (samples, i, i, mi_s, mi_l, fopts, siopt, liopt, 1);
-		// samples[i].dump(genome.getName(i), fopts);
+		samples[i].process(samples, i, i, mi_s, mi_l, fopts, siopt, liopt, 1, 1);
+		samples[i].dump(genome.getName(i), fopts);
 	}
 
-	// get the clusters for across-sample 
+	// get the dense_clusts for across-sample 
 	vector<vector<acrosample>> acrosamples(n);
 	for (i = 0; i < n; ++i) {
 		acrosamples[i].resize(n - i);
 		for (j = i + 1; j < n; ++j) {
 			acrosamples[i][j - i - 1].init(i, j, &samples[i], &samples[j]);
-			acrosamples[i][j - i - 1].across_process(samples, i, j, mi_s, mi_l, fopts, siopt, liopt, 0);
+			acrosamples[i][j - i - 1].across_process(samples, i, j, mi_s, mi_l, fopts, siopt, liopt, 0, 1);
 			acrosamples[i][j - i - 1].decideStrand();
-			// if (fopts.debug)
-			// 	acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));
+			// acrosamples[i][j - i - 1].trimclusters(1);
+			if (fopts.debug)
+				acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));
 		}
 	}	
 
 	// project every sample to samples[i]
-	for (i = 0; i < n; ++i) {
-		for (j = 0; j < n; ++j) {
-			// project samples[j] to samples[i]
-			if (i == j) continue;
-			if (j > i) { // samples[j] is y-axis
-				project(samples[j], samples[i], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 0);
+	if (n > 1) {
+		for (i = 0; i < n; ++i) {
+			for (j = 0; j < n; ++j) {
+				// project samples[j] to samples[i]
+				if (i == j) continue;
+				if (j > i) { // samples[j] is y-axis
+					project(samples[j], samples[i], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 0, 1);
+				}
+				else { // samples[j] is x-axis
+					project(samples[j], samples[i], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 1, 1);
+				}
 			}
-			else { // samples[j] is x-axis
-				project(samples[j], samples[i], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 1);
-			}
-		}
-		// for (j = 0; j < n; ++j) {
-		// 	// project samples[j] to samples[i]
-		// 	if (i == j) continue;
-		// 	if (j < i) { // samples[i] is y-axis
-		// 		project(samples[i], samples[j], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 0);
-		// 	}
-		// 	else { // samples[i] is x-axis
-		// 		project(samples[i], samples[j], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 1);
-		// 	}
-		// }
+		}		
 	}
-	// for (i = n - 1; i >= 0; --i) {
-	// 	for (j = 0; j < n; ++j) {
-	// 		// project samples[j] to samples[i]
-	// 		if (i == j) continue;
-	// 		if (j > i) { // samples[j] is y-axis
-	// 			project(samples[j], samples[i], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 0);
-	// 		}
-	// 		else { // samples[j] is x-axis
-	// 			project(samples[j], samples[i], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 1);
-	// 		}
-	// 	}
-	// 	if (i == 0) 
-	// 		break;
-	// 	// for (j = 0; j < n; ++j) {
-	// 	// 	// project samples[j] to samples[i]
-	// 	// 	if (i == j) continue;
-	// 	// 	if (j < i) { // samples[i] is y-axis
-	// 	// 		project(samples[i], samples[j], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 0);
-	// 	// 	}
-	// 	// 	else { // samples[i] is x-axis
-	// 	// 		project(samples[i], samples[j], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 1);
-	// 	// 	}
-	// 	// }
+
+	vector<uint32_t> clusterPivots;
+
+	// for (i = 0; i < n; ++i) {
+	// 	clusterPivots.clear();
+	// 	samples[i].clusterBreakpoints(fopts, clusterPivots);
+	// }
+
+	// project every sample to samples[i]
+	if (n > 1) {
+		for (i = 0; i < n; ++i) {
+			for (j = 0; j < n; ++j) {
+				// project samples[j] to samples[i]
+				if (i == j) continue;
+				if (j < i) { // samples[i] is y-axis
+					project(samples[i], samples[j], acrosamples[j][i - j - 1].dense_clusts, acrosamples[j][i - j - 1].sparse_clusts, fopts, 0, 1);
+				}
+				else { // samples[i] is x-axis
+					project(samples[i], samples[j], acrosamples[i][j - i - 1].dense_clusts, acrosamples[i][j - i - 1].sparse_clusts, fopts, 1, 1);
+				}
+			}
+		}		
+	}
+
+	for (i = 0; i < n; ++i) {
+		for (j = i + 1; j < n; ++j) {
+			if (fopts.debug)
+				acrosamples[i][j - i - 1].dump(genome.getName(i), genome.getName(j), fopts, genome.getLen(j));
+		}
+	}	
+	// for (i = 0; i < n; ++i) {
+	// 	clusterPivots.clear();
+	// 	samples[i].clusterBreakpoints(fopts, clusterPivots);
 	// }
 
 	// project self again
 	for (i = 0; i < n; ++i) {
-		project(samples[i], samples[i], samples[i].dense_clusts, samples[i].sparse_clusts, fopts, 0);
+		selfproject (samples[i], samples[i].dense_clusts, samples[i].sparse_clusts, fopts, 1);
+		clusterPivots.clear();
+		samples[i].clusterBreakpoints(fopts, clusterPivots);
+		selfproject (samples[i], samples[i].dense_clusts, samples[i].sparse_clusts, fopts, 1);
 	}
-
 	// if (fopts.debug) {
 	// 	for (i = 0; i < n; ++i) {
 	// 		samples[i].dump(genome.getName(i), fopts);
@@ -156,25 +161,28 @@ int main(int argc, char *argv[])
 	// 	else
 	// 		samples[i].relative_strand = 1;
 	// }
-
 	for (i = 0; i < n; ++i) {
 		// substract self-self dotplot clusters
 		samples[i].substractClusters();
-		samples[i].clusterBreakpoints(fopts, superGraph);
+		clusterPivots.clear();
+		samples[i].clusterBreakpoints(fopts, clusterPivots);
+
+		// insert intervals to graph
+		superGraph.insertInvt(clusterPivots, samples[i].idx, samples[i].s, samples[i].e);
 	}
 
 	superGraph.init();
 	for (i = 0; i < n; ++i) 
-		samples[i].unifyIntv(fopts, superGraph);
+		samples[i].unifyIntv(fopts, superGraph, 1);
 
 	for (i = 0; i < n; ++i) {
 		for (j = i + 1; j < n; ++j) {
-			acrosamples[i][j - i - 1].unifyIntv(fopts, superGraph);
+			acrosamples[i][j - i - 1].unifyIntv(fopts, superGraph, 1);
 		}
 	}
 	cerr << "finish constructing the graph" << endl;
 	// find connected components in the superGraph
-	superGraph.findConnetedComponents();
+	superGraph.findConnetedComponents(1);
 	dumpGraph(samples, superGraph, fopts);
 	return 0;
 }

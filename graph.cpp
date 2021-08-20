@@ -50,14 +50,28 @@ void DFS (const vector<vector<uint32_t>> &adlist, vector<uint32_t> &colors, uint
 			}
 		}
 	}	
+	cerr << "clusters: " << nofComs << endl;
+
 }
 
-void graph::findConnetedComponents ()
+void graph::findConnetedComponents (bool dense)
 {
 	if (intvs.size() == 0) return;
 	nofComs = 0; 
-	DFS (adlist_dense, colors_dense, nofComs);
-	cerr << "dense clusters: " << nofComs << endl;
-	DFS (adlist_sparse, colors_sparse, nofComs);
+	if (dense)
+		DFS (adlist_dense, colors_dense, nofComs);
+	else
+		DFS (adlist_sparse, colors_sparse, nofComs);
 }
 
+void graph::insertInvt (const vector<uint32_t> &clusterPivots, uint32_t idx, uint32_t &s, uint32_t &e)
+{
+	// insert intervals to graph
+	uint32_t i;
+	uint32_t o = intvs.size();
+	for (i = 1; i < clusterPivots.size(); ++i) 
+		intvs.push_back(interval(clusterPivots[i - 1], clusterPivots[i], idx));
+
+	s = o;
+	e = intvs.size();
+}

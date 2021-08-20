@@ -35,6 +35,16 @@ public:
 			diag = (xEnd - xStart) > (yEnd - yStart) ? ((int64_t)(xEnd - xStart) - (int64_t)(yEnd - yStart)) : ((int64_t)(yEnd - yStart) - (int64_t)(xEnd - xStart));
 	};
 	~cluster () {};
+
+	int operator < (const cluster &rhs) const {
+		if (strand != rhs.strand)
+			return strand != rhs.strand;
+		else if (xStart != rhs.xStart) 
+			return xStart < rhs.xStart;
+		else 
+			return yStart < rhs.yStart;
+	}
+
 };
 
 bool clustDiagonalSort (const cluster &a, const cluster &b); 

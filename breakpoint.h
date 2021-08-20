@@ -45,6 +45,8 @@ void secondTrim (sample &a, vector<cluster> &dense_clusts, vector<cluster> &spar
 
 void updateBreakpointsBasedOnPivot(sample &a, vector<uint32_t> &pivot, vector<uint32_t> &edge, const fragopt_t &fopts);
 
-void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, const fragopt_t &fopts, bool axis);
+void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, const fragopt_t &fopts, bool axis, bool dense);
+
+void selfproject (sample &a, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, const fragopt_t &fopts, bool dense);
 
 #endif

@@ -23,15 +23,15 @@ public:
 	void init (uint32_t i, string *rn);
 
 	void process (vector<sample> &samples, const uint32_t a, const uint32_t b, const idx_t &mi_s, const idx_t &mi_l, 
-		const fragopt_t &fopts, const idxopt_t &siopt, const idxopt_t &liopt, bool self);
+		const fragopt_t &fopts, const idxopt_t &siopt, const idxopt_t &liopt, bool self, bool dense);
 
 	void dump (string * readname, const fragopt_t &fopts);
 
-	void clusterBreakpoints (const fragopt_t &fopts, graph &superGraph);
+	void clusterBreakpoints (const fragopt_t &fopts, vector<uint32_t> &clusterPivots);
 
 	void substractClusters ();
 	
-	void unifyIntv(const fragopt_t &fopts, graph &superGraph);
+	void unifyIntv(const fragopt_t &fopts, graph &superGraph, bool dense);
 
 };
 
@@ -54,14 +54,15 @@ public:
 	void init (uint32_t idx, uint32_t jdx, sample * Pi, sample * Pj);
 
 	void across_process (vector<sample> &samples, const uint32_t a, const uint32_t b, const idx_t &mi_s, const idx_t &mi_l, 
-		const fragopt_t &fopts, const idxopt_t &siopt, const idxopt_t &liopt, bool self);
+		const fragopt_t &fopts, const idxopt_t &siopt, const idxopt_t &liopt, bool self, bool dense);
 	
 	void decideStrand ();
 
 	void dump (string * readname_i, string * readname_j, const fragopt_t &fopts, uint32_t len);		
 
-	void unifyIntv(const fragopt_t &fopts, graph &superGraph);
+	void unifyIntv(const fragopt_t &fopts, graph &superGraph, bool dense);
 
+	void trimclusters(bool dense);
 };
 
 
