@@ -95,13 +95,21 @@ inline void find_match_boundary_checking (const sample &sample_i, const sample &
 		if (ot != khash.end()) {
 			for (j = 0; j < ot->second.size(); ++j) {
 				for (i = 0; i < pos.size(); ++i) {
-					if (pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back()
-					and (ot->second)[j] >= sample_j.breakpoints[0] and (ot->second)[j] <= sample_j.breakpoints.back()) {
-						temp.mi = (mi & fmask); 
-						temp.x = pos[i]; 
-						temp.y = (ot->second)[j];
-						hits.push_back(temp);	
+					if (sample_i.breakpoints.size() == 0 or (sample_i.breakpoints.size() > 0 and pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back())) {
+						if (sample_j.breakpoints.size() == 0 or (sample_j.breakpoints.size() > 0 and (ot->second)[j] >= sample_j.breakpoints[0] and (ot->second)[j] <= sample_j.breakpoints.back())) {
+							temp.mi = (mi & fmask); 
+							temp.x = pos[i]; 
+							temp.y = (ot->second)[j];
+							hits.push_back(temp);
+						}
 					}
+					// if (pos[i] >= sample_i.breakpoints[0] and pos[i] <= sample_i.breakpoints.back()
+					// and (ot->second)[j] >= sample_j.breakpoints[0] and (ot->second)[j] <= sample_j.breakpoints.back()) {
+						// temp.mi = (mi & fmask); 
+						// temp.x = pos[i]; 
+						// temp.y = (ot->second)[j];
+						// hits.push_back(temp);	
+					// }
 				}
 			}
 		}		
@@ -115,7 +123,8 @@ void checkForwardmatch (const Genome *genome, uint32_t a, uint32_t b, uint32_t a
 	}
 }
 
-void rf_hit(const vector<sample> & samples, const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fhits, vector<hit> &rhits, const fragopt_t &fopts, const idxopt_t &iopt, bool self = 1) 
+void rf_hit(const sample &sample_a, const sample &sample_b, const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fhits, vector<hit> &rhits, const fragopt_t &fopts, 
+	const idxopt_t &iopt, bool self) 
 {
 	// cerr << "mi.seqh[a].size(): " <<  mi.seqh[a]->size() << endl;
 	uint256_t f, r; bool z;
@@ -134,13 +143,13 @@ void rf_hit(const vector<sample> & samples, const uint32_t a, const uint32_t b, 
 			}
 			else { // sample i to sample j matches
 				if ((z ^ 0) == 0) // z = 0: forward 
-					find_match_boundary_checking(samples[a], samples[b], fhits, f, it->second, *mi.seqh[b], self);
+					find_match_boundary_checking(sample_a, sample_b, fhits, f, it->second, *mi.seqh[b], self);
 				if ((z ^ 1) == 0) // z = 1: forward
-					find_match_boundary_checking(samples[a], samples[b], fhits, r, it->second, *mi.seqh[b], self);
+					find_match_boundary_checking(sample_a, sample_b, fhits, r, it->second, *mi.seqh[b], self);
 				if ((z ^ 1) == 1) // z = 0: reverse matches
-					find_match_boundary_checking(samples[a], samples[b], rhits, r, it->second, *mi.seqh[b], self);
+					find_match_boundary_checking(sample_a, sample_b, rhits, r, it->second, *mi.seqh[b], self);
 				if ((z ^ 0) == 1) // z = 1: reverse matches
-					find_match_boundary_checking(samples[a], samples[b], rhits, f, it->second, *mi.seqh[b], self);
+					find_match_boundary_checking(sample_a, sample_b, rhits, f, it->second, *mi.seqh[b], self);
 			}
 			
 		}
@@ -335,8 +344,8 @@ void cleanDiag(vector<hit> &hits, clusters &clust, const fragopt_t &fopts, const
 			c++;
 		}
 	}
-	cerr << "before cleaning: " << hits.size() << endl;
-	cerr << "after cleaning: " << c << endl;
+	// cerr << "before cleaning: " << hits.size() << endl;
+	// cerr << "after cleaning: " << c << endl;
 	hits.resize(c);
 	counts.resize(c);
 

@@ -30,7 +30,7 @@ public:
 		DiagMinCluster = 500;
 		clusterMaxDiag = 20;
 		clusterMaxDist = 200; // 800
-		clusterMinLength = 1000;
+		clusterMinLength = 500;
 		// CleanMaxDiag = 100;
 		// DiagMinCluster = 50;
 		// clusterMaxDiag = 1;
@@ -38,9 +38,9 @@ public:
 		// clusterMinLength = 500;
 		clusterTrimedge = 400;
 		code = 0;
-		debug = true;
+		debug = false;
 		freq = 50;
-		ovpfrac = 0.6;
+		ovpfrac = 0.80f;
 	};
 
 	

@@ -16,7 +16,14 @@ option_list <- list(
     make_option(c("-l", "--line"), action="store_true", default=FALSE,
         help="Show lines"),
   	make_option(c("-f", "--file"), type="character", default=NULL, 
-              help="file name", metavar="character")
+              help="file name", metavar="character"),
+
+   	make_option(c("-p", "--pair"), action="store_true", default=FALSE, 
+              help="readpair"),
+   	make_option(c("-A", "--pair1"), type="character", default=NULL, 
+              help="readpair_1", metavar="character"),
+    make_option(c("-B", "--pair2"), type="character", default=NULL, 
+              help="readpair_2", metavar="character")
     )
 
 opt <- parse_args(OptionParser(option_list=option_list))
@@ -29,10 +36,45 @@ UniquePairs <- function(readname_i, readname_j) {
 	return(uniquepairs)
 }
 
-plotMatches <- function(file, cluster, line, across_sample, unify_sample) {
+plotMatches <- function(file, cluster, line, across_sample, unify_sample, pair, pair1, pair2) {
 	#----------------for-matches.dots & rev-matches.dots--------------------- --------------------- 
 	# qStart, tStart, qEnd, tEnd
-	if (cluster == TRUE) {
+	if (pair) {
+		print("yeah")
+		clust <- read.delim(paste0(file, "_acrosssample.bed"), sep = "\t", header = FALSE)
+		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand", "cluster", "dense", "readname_i", "readname_j")
+		lines <- read.delim("trimlines_acrosssample.bed", sep = "\t", header = FALSE)
+		colnames(lines) <- c("intercept", "readname_i", "readname_j")
+		# forward matches
+		subclust <- clust[which(clust$readname_i == pair1 & clust$readname_j == pair2),]
+		fclust <- subclust[which(subclust$strand == 0),]
+		t <- ggplot(subclust[, c(1:4)]) + 
+			geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd, linetype = factor(fclust$dense), color = factor(fclust$cluster)), 
+				data = fclust[, c(1:4)], size = 1.5) + labs(color = "cluster groups", linetype = "large/small kmer")
+
+		# reverse matches
+		rclust <- subclust[which(subclust$strand == 1),]
+		t <- t + geom_segment(aes(x = xStart, y = yEnd, xend = xEnd, yend = yStart, linetype = factor(rclust$dense), color = factor(rclust$cluster)), 
+		        data = rclust[, c(1:4)], size = 1.5) + labs(color = "cluster groups", linetype = "large/small kmer")
+		t <- t + xlab(pair1) + ylab(pair2) + ggtitle("across-sample matches")
+		t.title = element_text(size = 1)
+
+		sublines <- lines[which(lines$readname_i == pair1 & lines$readname_j == pair2),]
+		t <- t + geom_vline(xintercept = sublines$intercept, linetype="dashed", color = "red", size = 0.1) 
+		# for (row in 1:nrow(sublines)) {
+		# 	t <- t + geom_vline(xintercept = sublines[row, "intercept"], linetype="dashed", color = "red", size = 0.3)
+		# }
+
+		sublines <- lines[which(lines$readname_i == pair2 & lines$readname_j == pair1),]
+		t <- t + geom_hline(yintercept = sublines$intercept, linetype="dashed", color = "black", size = 0.1) 
+		# for (row in 1:nrow(sublines)) {
+		# 	t <- t + geom_hline(yintercept = sublines[row, "intercept"], linetype="dashed", color = "black", size = 0.3)
+		# }	
+		ggsave(paste(file, "pair.pdf", sep = "."), device = "pdf", width = 7, height = 7.09, dpi=200)	
+
+
+	}
+	else if (cluster == TRUE) {
 		clust <- read.delim(paste0(file, ".bed"), sep = "\t", header = FALSE)
 		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand", "cluster", "dense", "readname")
 		if (line == TRUE) {
@@ -73,6 +115,7 @@ plotMatches <- function(file, cluster, line, across_sample, unify_sample) {
 
 		clust <- read.delim(paste0(file, "_acrosssample.bed"), sep = "\t", header = FALSE)
 		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand", "cluster", "dense", "readname_i", "readname_j")
+		clust <- clust[which(clust$dense == 0),]
 		if (line == TRUE) {
 			lines <- read.delim("trimlines_acrosssample.bed", sep = "\t", header = FALSE)
 			colnames(lines) <- c("intercept", "readname_i", "readname_j")
@@ -109,13 +152,11 @@ plotMatches <- function(file, cluster, line, across_sample, unify_sample) {
 			}
 			else if (line == TRUE) {
 				sublines <- lines[which(lines$readname_i == readname_i & lines$readname_j == readname_j),]
-				for (row in 1:nrow(sublines)) {
-					t <- t + geom_vline(xintercept = sublines[row, "intercept"], linetype="dashed", color = "red", size = 0.3)
-				}
+				t <- t + geom_vline(xintercept = sublines$intercept, linetype="dashed", color = "red", size = 0.1) 
+
 				sublines <- lines[which(lines$readname_i == readname_j & lines$readname_j == readname_i),]
-				for (row in 1:nrow(sublines)) {
-					t <- t + geom_hline(yintercept = sublines[row, "intercept"], linetype="dashed", color = "black", size = 0.3)
-				}				
+				t <- t + geom_hline(yintercept = sublines$intercept, linetype="dashed", color = "black", size = 0.1) 
+				
 			}
 			ggsave(paste(file, readname_i, readname_j, "pdf", sep = "."), device = "pdf", width = 7, height = 7.09, dpi=200)	
 		}
@@ -125,25 +166,27 @@ plotMatches <- function(file, cluster, line, across_sample, unify_sample) {
   #                 output = paste0(file, "_unifysample.pdf"))
 	} else {
 		clust <- read.delim(paste0(file, ".bed"), sep = "\t", header = FALSE)
-		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand")
-		fclust <- clust[which(clust$strand == 0),]
-		print(nrow(fclust))
-		t <- ggplot(clust[, c(1:4)]) + 
-			geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd), 
-				color ='black', data = fclust[, c(1:4)], size = 1.5)
+		colnames(clust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand", "dense", "readname")
+		# clust <- clust[which(clust$dense == 1),]
+		for(readname in unique(clust$readname)) {
+			subclust <- clust[which(clust$readname == readname),]
+			fclust <- subclust[which(subclust$strand == 0),]
+			t <- ggplot(clust[, c(1:4)]) + 
+				geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd, linetype = factor(fclust$dense)), 
+					color ='black', data = fclust[, c(1:4)], size = 1.5)
 
-		rclust <- clust[which(clust$strand == 1),]
-		print(nrow(rclust))
-		# colnames(rclust) <- c("xStart", "yStart", "xEnd", "yEnd", "len", "strand")
-		t <- t + geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd), 
-		        color ='red', data = rclust[, c(1:4)], size = 1.5)
-		t <- t + xlab("read") + ylab("genome") + ggtitle("matches") 
-		ggsave(paste0(file, ".pdf"), device = "pdf", width = 7, height = 7.09, dpi=200)		
+			rclust <- subclust[which(subclust$strand == 1),]
+			t <- t + geom_segment(aes(x = xStart, y = yStart, xend = xEnd, yend = yEnd, linetype = factor(rclust$dense)), 
+			        color ='red', data = rclust[, c(1:4)], size = 1.5)
+			t <- t + xlab("self") + ylab("self") + ggtitle(paste(readname, "matches"))
+			ggsave(paste0(file, ".", readname, ".pdf"), device = "pdf", width = 6, height = 7.09, dpi=200)				
+		}
+		pdf_combine(input = paste(file, unique(clust$readname), "pdf", sep = "."),
+                  output = paste0(file, ".pdf"))
 	}
-
 }
 
-plotMatches(opt$file, opt$cluster, opt$line, opt$across_sample, opt$unify_sample)
+plotMatches(opt$file, opt$cluster, opt$line, opt$across_sample, opt$unify_sample, opt$pair, opt$pair1, opt$pair2)
 
 
 

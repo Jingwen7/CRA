@@ -16,11 +16,13 @@ using std::vector;
 class interval
 {
 public:
-	uint32_t s;
-	uint32_t e;
+	uint32_t s_left;
+	uint32_t s_right;
+	uint32_t e_left;
+	uint32_t e_right;
 	uint32_t sample_idx;
 
-	interval (uint32_t S, uint32_t E, uint32_t Idx) : s(S), e(E), sample_idx(Idx) {};
+	interval (uint32_t S_left, uint32_t S_right, uint32_t E_left, uint32_t E_right, uint32_t Idx) : s_left(S_left), s_right(S_right), e_left(E_left), e_right(E_right), sample_idx(Idx) {};
 	~interval () {};
 };
 
@@ -33,16 +35,17 @@ public:
 	vector<uint32_t> colors_dense;
 	vector<uint32_t> colors_sparse;
 	vector<uint32_t> lens;
-	UF * uf;
+	// UF * uf;
 	uint32_t nofComs;
 
 	graph () {};
 	~graph () {
-		delete uf;
+		// delete uf;
 	};
 
 	void init ();
 	void findConnetedComponents (bool dense);
-	void insertInvt (const vector<uint32_t> &clusterPivots, uint32_t idx, uint32_t &s, uint32_t &e);
+	void insertInvt (vector<uint32_t> &left_bps, vector<uint32_t> &right_bps, uint32_t idx, uint32_t &s, uint32_t &e);
+
 };
 #endif

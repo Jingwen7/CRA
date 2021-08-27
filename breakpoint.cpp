@@ -308,9 +308,16 @@ void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluste
 	uint32_t i;
 	set<uint32_t> bps;
 	set<uint32_t> proj_bps;
+	
 	// insert original breakpoints of a to bps
-  	for (auto&it : a.breakpoints) 
-    	bps.insert(it);
+	if (dense) {
+	  	for (auto&it : a.breakpoints) 
+	    	bps.insert(it);		
+	}
+	else {
+	  	for (auto&it : a.hyperbreakpoints) 
+	    	bps.insert(it);			
+	}
 
 	auto its = bps.begin();
 	auto ite = bps.begin();
@@ -342,7 +349,16 @@ void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluste
 
 			// project the first collected breakpoints to the other axis
 			project_helper(its, ite, dense_clusts[i], proj_bps, axis);
-		}		
+		}	
+
+		for (auto&it : b.breakpoints)
+			proj_bps.insert(it);
+
+		b.breakpoints.clear();
+	  	for (auto it = proj_bps.begin(); it != proj_bps.end(); ++it)
+	    	b.breakpoints.push_back(*it);	
+
+	    assert(b.breakpoints.size() > 0);
 	}
 	else {
 		for (auto&it : sparse_clusts) {
@@ -371,15 +387,23 @@ void project (sample &a, sample &b, vector<cluster> &dense_clusts, vector<cluste
 			// project the first collected breakpoints to the other axis	
 			project_helper(its, ite, sparse_clusts[i], proj_bps, axis);
 		}	
+
+		for (auto&it : b.hyperbreakpoints)
+			proj_bps.insert(it);
+
+		b.hyperbreakpoints.clear();
+	  	for (auto it = proj_bps.begin(); it != proj_bps.end(); ++it)
+	    	b.hyperbreakpoints.push_back(*it);
+
+	    assert(b.hyperbreakpoints.size() > 0);
 	}
 
-	// set<uint32_t> b_sort;
-	for (auto&it : b.breakpoints)
-		proj_bps.insert(it);
+	// for (auto&it : b.breakpoints)
+	// 	proj_bps.insert(it);
 
-	b.breakpoints.clear();
-  	for (auto it = proj_bps.begin(); it != proj_bps.end(); ++it)
-    	b.breakpoints.push_back(*it);	
+	// b.breakpoints.clear();
+ //  	for (auto it = proj_bps.begin(); it != proj_bps.end(); ++it)
+ //    	b.breakpoints.push_back(*it);	
 }
 
 
@@ -392,8 +416,15 @@ void selfproject (sample &a, vector<cluster> &dense_clusts, vector<cluster> &spa
 	set<uint32_t> bps;
 	set<uint32_t> temp_bps;
 	// insert original breakpoints of a to bps
-  	for (auto&it : a.breakpoints) 
-    	bps.insert(it);
+	if (dense) {
+	  	for (auto&it : a.breakpoints) 
+	    	bps.insert(it);		
+	}
+	else {
+	  	for (auto&it : a.hyperbreakpoints) 
+	    	bps.insert(it);		
+	}
+
 
 	auto its = bps.begin();
 	auto ite = bps.begin();
@@ -416,7 +447,10 @@ void selfproject (sample &a, vector<cluster> &dense_clusts, vector<cluster> &spa
 
 			for (auto&tmp : temp_bps) 
 				bps.insert(tmp);
-		}		
+		}	
+		a.breakpoints.clear();
+	  	for (auto it = bps.begin(); it != bps.end(); ++it)
+	    	a.breakpoints.push_back(*it);		
 	}
 	else {
 		for (auto&it : sparse_clusts) {
@@ -435,11 +469,14 @@ void selfproject (sample &a, vector<cluster> &dense_clusts, vector<cluster> &spa
 			for (auto&tmp : temp_bps) 
 				bps.insert(tmp);
 		}	
+		a.hyperbreakpoints.clear();
+	  	for (auto it = bps.begin(); it != bps.end(); ++it)
+	    	a.hyperbreakpoints.push_back(*it);	
 	}
 
-	a.breakpoints.clear();
-  	for (auto it = bps.begin(); it != bps.end(); ++it)
-    	a.breakpoints.push_back(*it);	
+	// a.breakpoints.clear();
+ //  	for (auto it = bps.begin(); it != bps.end(); ++it)
+ //    	a.breakpoints.push_back(*it);	
 }
 
 void secondTrim (sample &a, vector<cluster> &dense_clusts, vector<cluster> &sparse_clusts, vector<uint32_t> &bps_first, vector<uint32_t> &bps_second,

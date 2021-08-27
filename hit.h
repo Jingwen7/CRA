@@ -18,7 +18,8 @@ public:
 	~hit() {};	
 };
 
-void rf_hit(const vector<sample> & samples, const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fhits, vector<hit> &rhits, const fragopt_t &fopts, const idxopt_t &iopt, bool self);
+void rf_hit(const sample &sample_a, const sample &sample_b, const uint32_t a, const uint32_t b, const idx_t &mi, vector<hit> &fhits, 
+				vector<hit> &rhits, const fragopt_t &fopts, const idxopt_t &iopt, bool self);
 
 void storeDiagCluster (uint32_t s, uint32_t e, vector<hit> &hits, clusters &clust, bool st, const idxopt_t &iopt, const fragopt_t &fopts);
 
